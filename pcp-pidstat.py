@@ -1,6 +1,7 @@
 import sys
 from pcp import pmcc
 from pcp import pmapi
+
 # Metric list to be fetched
 PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','proc.psinfo.utime',
                     'proc.psinfo.stime','proc.psinfo.guest_time','proc.psinfo.processor',
@@ -94,12 +95,12 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         perccpuusage = {}
 
         for inst in inst_list:
-            percusertime[inst] = 100*((c_usertimes[inst] - p_usertimes[inst])/(c_totalusertimes - p_totalusertimes))
+            percusertime[inst] = 100*(float(c_usertimes[inst] - p_usertimes[inst])/(c_totalusertimes - p_totalusertimes))
             if (c_totalguesttimes - p_totalguesttimes) != 0:
-                percguesttime[inst] = 100*((c_guesttimes[inst] - p_guesttimes[inst])/(c_totalguesttimes - p_totalguesttimes))
+                percguesttime[inst] = 100*(float(c_guesttimes[inst] - p_guesttimes[inst])/(c_totalguesttimes - p_totalguesttimes))
             else:
                 percguesttime[inst] = 0.00
-            percsystime[inst] = 100*((c_systimes[inst] - p_systimes[inst])/(c_totalsystimes - p_totalsystimes))
+            percsystime[inst] = 100*(float((c_systimes[inst] - p_systimes[inst]))/(c_totalsystimes - p_totalsystimes))
 
             c_proctimes = c_usertimes[inst]+c_systimes[inst]
             p_proctimes = p_usertimes[inst]+p_systimes[inst]
@@ -108,7 +109,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             p_cputimes = p_totalusertimes+p_totalsystimes+p_totalidletimes+p_totalnicetimes
 
             ncpu = self.get_ncpu(group)
-            perccpuusage[inst] = (ncpu * 100 * (c_proctimes-p_proctimes))/(c_cputimes - p_cputimes)
+            perccpuusage[inst] = (ncpu * 100 * float(c_proctimes-p_proctimes))/(c_cputimes - p_cputimes)
 
         inst_list.sort()
         for inst in inst_list:
@@ -122,7 +123,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 if __name__ == "__main__":
     try:
         opts = PidstatOptions()
-        # opts.pmSetOptionSamples('1')      
+        # opts.pmSetOptionSamples('1')
         manager = pmcc.MetricGroupManager.builder(opts,sys.argv)
         manager['pidstat'] = PIDSTAT_METRICS
         manager.printer = PidstatReport()
@@ -135,4 +136,3 @@ if __name__ == "__main__":
         sys.exit(1)
     except KeyboardInterrupt:
         pass
-
