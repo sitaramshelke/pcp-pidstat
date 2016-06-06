@@ -19,6 +19,11 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     infoCount = 0      #print machine info only once
     hCount = 0         #print header labels
 
+    def timeStampDelta(self, group):
+        s = group.timestamp.tv_sec - group.prevTimestamp.tv_sec
+        u = group.timestamp.tv_usec - group.prevTimestamp.tv_usec
+        return (s + u / 1000000.0)
+
     def print_machine_info(self,group):
         machine_name = group['pmda.uname'].netValues[0][2]
         no_cpu =self.get_ncpu(group)
@@ -94,32 +99,32 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         percsystime = {}
         perccpuusage = {}
 
-        # FIXME: this should be the time interval between fetches, we can't assume its 1 second.
-        # Look at how it is done in pcp-iostat (look at IostatReport.timeStampDelta method)
-        interval_in_seconds = 1
+
+        interval_in_seconds = self.timeStampDelta(group)
 
         for inst in inst_list:
-            percusertime[inst] = 100*float(c_usertimes[inst] - p_usertimes[inst])/1000*interval_in_seconds
-            if (c_totalguesttimes - p_totalguesttimes) != 0:
-                percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
-            else:
-                percguesttime[inst] = 0.00
-            percsystime[inst] = 100*(float((c_systimes[inst] - p_systimes[inst]))/(c_totalsystimes - p_totalsystimes))
-            percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
+            if inst != '':
+                percusertime[inst] = 100*float(c_usertimes[inst] - p_usertimes[inst])/1000*interval_in_seconds
+                if (c_totalguesttimes - p_totalguesttimes) != 0:
+                    percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
+                else:
+                    percguesttime[inst] = 0.00
+                percsystime[inst] = 100*(float((c_systimes[inst] - p_systimes[inst]))/(c_totalsystimes - p_totalsystimes))
+                percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
 
-            c_proctimes = c_usertimes[inst]+c_systimes[inst]
-            p_proctimes = p_usertimes[inst]+p_systimes[inst]
+                c_proctimes = c_usertimes[inst]+c_systimes[inst]
+                p_proctimes = p_usertimes[inst]+p_systimes[inst]
 
-            c_cputimes = c_totalusertimes+c_totalsystimes+c_totalidletimes+c_totalnicetimes
-            p_cputimes = p_totalusertimes+p_totalsystimes+p_totalidletimes+p_totalnicetimes
+                c_cputimes = c_totalusertimes+c_totalsystimes+c_totalidletimes+c_totalnicetimes
+                p_cputimes = p_totalusertimes+p_totalsystimes+p_totalidletimes+p_totalnicetimes
 
-            ncpu = self.get_ncpu(group)
-            perccpuusage[inst] = (ncpu * 100 * float(c_proctimes-p_proctimes))/(c_cputimes - p_cputimes)
+                ncpu = self.get_ncpu(group)
+                perccpuusage[inst] = (ncpu * 100 * float(c_proctimes-p_proctimes))/(c_cputimes - p_cputimes)
 
         inst_list.sort()
         for inst in inst_list:
-
-            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
+            if inst != '':
+                print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
 
         print ("\n\n")
 
