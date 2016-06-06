@@ -94,13 +94,18 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         percsystime = {}
         perccpuusage = {}
 
+        # FIXME: this should be the time interval between fetches, we can't assume its 1 second.
+        # Look at how it is done in pcp-iostat (look at IostatReport.timeStampDelta method)
+        interval_in_seconds = 1
+
         for inst in inst_list:
-            percusertime[inst] = 100*(float(c_usertimes[inst] - p_usertimes[inst])/(c_totalusertimes - p_totalusertimes))
+            percusertime[inst] = 100*float(c_usertimes[inst] - p_usertimes[inst])/1000*interval_in_seconds
             if (c_totalguesttimes - p_totalguesttimes) != 0:
-                percguesttime[inst] = 100*(float(c_guesttimes[inst] - p_guesttimes[inst])/(c_totalguesttimes - p_totalguesttimes))
+                percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
             else:
                 percguesttime[inst] = 0.00
             percsystime[inst] = 100*(float((c_systimes[inst] - p_systimes[inst]))/(c_totalsystimes - p_totalsystimes))
+            percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
 
             c_proctimes = c_usertimes[inst]+c_systimes[inst]
             p_proctimes = p_usertimes[inst]+p_systimes[inst]
