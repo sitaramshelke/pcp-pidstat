@@ -35,17 +35,17 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         print "Timestamp\tUID\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
 
     def instlist(self, group, name):
-        return dict(map(lambda x: (x[1], x[2]), group[name].netValues)).keys()
+        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues)).keys()
 
     def curVal(self,group,name):
         return group[name].netValues[0][2]
     def prevVal(self,group,name):
         return group[name].netPrevValues[0][2]
     def curVals(self, group, name):
-        return dict(map(lambda x: (x[1], x[2]), group[name].netValues))
+        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues))
 
     def prevVals(self, group, name):
-        return dict(map(lambda x: (x[1], x[2]), group[name].netPrevValues))
+        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netPrevValues))
 
     def report(self,manager):
         group = manager['pidstat']
@@ -103,23 +103,22 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         interval_in_seconds = self.timeStampDelta(group)
 
         for inst in inst_list:
-            if inst != '':
+            if inst in p_usertimes: #if prvious value is available for the instance
                 percusertime[inst] = 100*float(c_usertimes[inst] - p_usertimes[inst])/1000*interval_in_seconds
-                if (c_totalguesttimes - p_totalguesttimes) != 0:
-                    percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
-                else:
-                    percguesttime[inst] = 0.00
-                percsystime[inst] = 100*(float((c_systimes[inst] - p_systimes[inst]))/(c_totalsystimes - p_totalsystimes))
+                percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
                 percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
 
-                c_proctimes = c_usertimes[inst]+c_systimes[inst]
-                p_proctimes = p_usertimes[inst]+p_systimes[inst]
+                c_proctimes = c_usertimes[inst]+c_systimes[inst]+percguesttime[inst]
+                p_proctimes = p_usertimes[inst]+p_systimes[inst]+percguesttime[inst]
+            else: #if process is newly started and previous value is not available
+                percusertime[inst] = 100*float(c_usertimes[inst])/1000*interval_in_seconds
+                percguesttime[inst] = 100*float(c_guesttimes[inst])/1000*interval_in_seconds
+                percsystime[inst] = 100*float(c_systimes[inst])/1000*interval_in_seconds
 
-                c_cputimes = c_totalusertimes+c_totalsystimes+c_totalidletimes+c_totalnicetimes
-                p_cputimes = p_totalusertimes+p_totalsystimes+p_totalidletimes+p_totalnicetimes
+                c_proctimes = c_usertimes[inst]+c_systimes[inst]+percguesttime[inst]
+                p_proctimes = 0
 
-                ncpu = self.get_ncpu(group)
-                perccpuusage[inst] = (ncpu * 100 * float(c_proctimes-p_proctimes))/(c_cputimes - p_cputimes)
+            perccpuusage[inst] = (100 * float(c_proctimes-p_proctimes))/1000*interval_in_seconds
 
         inst_list.sort()
         for inst in inst_list:
