@@ -8,6 +8,33 @@ PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','pro
                     'proc.id.uid','proc.psinfo.cmd','kernel.all.cpu.user','kernel.all.cpu.vuser',
                     'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle']
 
+class UserCpuUsage:
+    def __init__(self, group):
+        self.group = group
+        self.__current = None
+        self.__previous = None
+
+    def for_instance(self, instance, delta_time):
+        if  self.__current_value(instance) is None:
+            return None
+        if self.__previous_value(instance) is None:
+            return 0
+        return 100 * float(self.__current_value(instance) - self.__previous_value(instance)) / 1000 * delta_time
+
+    def __current_value(self, instance):
+        if self.__current is None:
+            self.__current = dict(map(lambda x: (x[0].inst, x[2]), self.group['proc.psinfo.utime'].netValues))
+        return self.__current.get(instance, None)
+
+    def __previous_value(self, instance):
+        if self.__previous is None:
+            raw_previous_values = self.group['proc.psinfo.utime'].netPrevValues
+            if raw_previous_values is None:
+                return None
+            self.__previous = dict(map(lambda x: (x[0].inst, x[2]), raw_previous_values))
+        return self.__previous.get(instance, None)
+
+
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     def __init__(self):
@@ -102,16 +129,18 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
         interval_in_seconds = self.timeStampDelta(group)
 
+        user_cpu_usage = UserCpuUsage(group)
+
         for inst in inst_list:
             if inst in p_usertimes: #if prvious value is available for the instance
-                percusertime[inst] = 100*float(c_usertimes[inst] - p_usertimes[inst])/1000*interval_in_seconds
+                percusertime[inst] = user_cpu_usage.for_instance(inst, interval_in_seconds)
                 percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
                 percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
 
                 c_proctimes = c_usertimes[inst]+c_systimes[inst]+percguesttime[inst]
                 p_proctimes = p_usertimes[inst]+p_systimes[inst]+percguesttime[inst]
             else: #if process is newly started and previous value is not available
-                percusertime[inst] = 100*float(c_usertimes[inst])/1000*interval_in_seconds
+                percusertime[inst] = user_cpu_usage.for_instance(inst, interval_in_seconds)
                 percguesttime[inst] = 100*float(c_guesttimes[inst])/1000*interval_in_seconds
                 percsystime[inst] = 100*float(c_systimes[inst])/1000*interval_in_seconds
 
