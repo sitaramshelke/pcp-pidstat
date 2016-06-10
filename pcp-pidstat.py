@@ -14,7 +14,7 @@ class ReportingMetricRepository:
     def current_value(self, metric, instance):
         if not metric in self.group:
             return None
-        if instance != '':
+        if instance:
             lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netValues))
             if instance in lst.keys():
                 return lst.get(instance,None)
@@ -25,7 +25,7 @@ class ReportingMetricRepository:
     def previous_value(self, metric, instance):
         if not metric in self.group:
             return None
-        if instance != '':
+        if instance:
             lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netPrevValues))
             if instance in lst.keys():
                 return lst.get(instance,None)
