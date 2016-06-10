@@ -7,7 +7,32 @@ PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','pro
                     'proc.psinfo.stime','proc.psinfo.guest_time','proc.psinfo.processor',
                     'proc.id.uid','proc.psinfo.cmd','kernel.all.cpu.user','kernel.all.cpu.vuser',
                     'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle']
+class ReportingMetricRepository:
+    def __init__(self,group):
+        self.group = group
 
+    def current_value(self, metric, instance):
+        if not metric in self.group:
+            return None
+        if instance != '':
+            lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netValues))
+            if instance in lst.keys():
+                return lst.get(instance,None)
+            else:
+                return None
+        else:
+            return self.group[metric].netValues[0][2]
+    def previous_value(self, metric, instance):
+        if not metric in self.group:
+            return None
+        if instance != '':
+            lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netPrevValues))
+            if instance in lst.keys():
+                return lst.get(instance,None)
+            else:
+                return None
+        else:
+            return self.group[metric].netPrevValues[0][2]
 class UserCpuUsage:
     def __init__(self, group):
         self.group = group
