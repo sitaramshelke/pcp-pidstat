@@ -64,5 +64,25 @@ class ReportingMetricRepositoryTest(unittest.TestCase):
         c_utime = m_repo.previous_value('kernel.all.cpu.user','')
         self.assertEquals(c_utime,12354)
 
+    def test_returns_none_if_a_metric_for_previous_value_does_not_exist_for_an_instance(self):
+        utime_mock = Mock(
+            netValues = [(Mock(inst=111),'dummyprocess',12345)],
+            netPrevValues = [(Mock(inst=111),'dummyprocess',12354)]
+        )
+        group = {'proc.psinfo.utime':utime_mock}
+        m_repo = ReportingMetricRepository(group)
+        c_utime = m_repo.previous_value('proc.psinfo.time',111)
+        self.assertEquals(c_utime,None)
+
+    def test_returns_none_if_a_metric_for_previous_value_does_not_exist_for_a_metric_that_has_no_instance(self):
+        utime_mock = Mock(
+            netValues = [('NULL','',12345)],
+            netPrevValues = [('NULL','',12354)]
+        )
+        group = {'kernel.all.cpu.user':utime_mock}
+        m_repo = ReportingMetricRepository(group)
+        c_utime = m_repo.previous_value('kernel.all.cpu.guest','')
+        self.assertEquals(c_utime,None)
+
 if __name__ == "__main__":
     unittest.main()
