@@ -12,13 +12,24 @@ class ReportingMetricRepository:
         self.group = group
         self.current_cached_values = {}
         self.previous_cached_values = {}
+    def __fetch_current_values(self,metric,instance):
+        if instance:
+            return dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netValues))
+        else:
+            return self.group[metric].netValues[0][2]
+
+    def __fetch_previous_values(self,metric,instance):
+        if instance:
+            return dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netPrevValues))
+        else:
+            return self.group[metric].netPrevValues[0][2]
 
     def current_value(self, metric, instance):
         if not metric in self.group:
             return None
         if instance:
             if not metric in self.current_cached_values.keys():
-                lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netValues))
+                lst = self.__fetch_current_values(metric,instance)
                 self.current_cached_values[metric] = lst
             if instance in self.current_cached_values[metric].keys():
                 return self.current_cached_values[metric].get(instance,None)
@@ -26,14 +37,14 @@ class ReportingMetricRepository:
                 return None
         else:
             if not metric in self.current_cached_values.keys():
-                self.current_cached_values[metric] = self.group[metric].netValues[0][2]
+                self.current_cached_values[metric] = self.__fetch_current_values(metric,instance)
             return self.current_cached_values[metric]
     def previous_value(self, metric, instance):
         if not metric in self.group:
             return None
         if instance:
             if not metric in self.current_cached_values.keys():
-                lst = dict(map(lambda x: (x[0].inst, x[2]), self.group[metric].netPrevValues))
+                lst = self.__fetch_previous_values(metric,instance)
                 self.current_cached_values[metric] = lst
             if instance in self.current_cached_values[metric].keys():
                 return self.current_cached_values[metric].get(instance,None)
@@ -41,7 +52,7 @@ class ReportingMetricRepository:
                 return None
         else:
             if not metric in self.current_cached_values.keys():
-                self.current_cached_values[metric] = self.group[metric].netPrevValues[0][2]
+                self.current_cached_values[metric] = self.__fetch_previous_values(metric,instance)
             return self.current_cached_values[metric]
 class UserCpuUsage:
     def __init__(self, group):

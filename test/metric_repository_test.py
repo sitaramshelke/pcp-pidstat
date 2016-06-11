@@ -1,5 +1,6 @@
 import unittest
-from mock import Mock
+from mock import Mock,MagicMock
+import mock as mck
 from pcp_pidstat import ReportingMetricRepository
 
 class ReportingMetricRepositoryTest(unittest.TestCase):
@@ -99,6 +100,37 @@ class ReportingMetricRepositoryTest(unittest.TestCase):
         c_utime = m_repo.previous_value('kernel.all.cpu.guest',None)
 
         self.assertIsNone(c_utime)
+
+    def test_checks_if_metric_values_are_fetched_only_once_if_not_available(self):
+        proc_utime_mock = Mock(
+            netValues = [(Mock(inst=111),'dummyprocess',12345)],
+            netPrevValues = [(Mock(inst=111),'dummyprocess',12354)]
+        )
+        group = {'proc.psinfo.utime':proc_utime_mock}
+        m_repo = ReportingMetricRepository(group)
+        fetch_call_count = 0
+
+        with mck.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
+            c_ptime = m_repo.current_value('proc.psinfo.utime',111)
+            fetch_call_count = method.call_count
+
+        self.assertEquals(fetch_call_count,1)
+
+    def test_checks_if_metric_values_are_not_fetched_if_already_available(self):
+        proc_utime_mock = Mock(
+            netValues = [(Mock(inst=111),'dummyprocess',12345)],
+            netPrevValues = [(Mock(inst=111),'dummyprocess',12354)]
+        )
+        group = {'proc.psinfo.utime':proc_utime_mock}
+        m_repo = ReportingMetricRepository(group)
+        m_repo.current_cached_values = {'proc.psinfo.utime':{111:12354}}
+        fetch_call_count = 0
+
+        with mck.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
+            c_ptime = m_repo.current_value('proc.psinfo.utime',111)
+            fetch_call_count = method.call_count
+
+        self.assertEquals(fetch_call_count,0)
 
 if __name__ == "__main__":
     unittest.main()
