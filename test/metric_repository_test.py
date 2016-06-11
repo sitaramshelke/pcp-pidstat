@@ -1,6 +1,6 @@
 import unittest
 from mock import Mock,MagicMock
-import mock as mck
+import mock
 from pcp_pidstat import ReportingMetricRepository
 
 class ReportingMetricRepositoryTest(unittest.TestCase):
@@ -110,7 +110,7 @@ class ReportingMetricRepositoryTest(unittest.TestCase):
         m_repo = ReportingMetricRepository(group)
         fetch_call_count = 0
 
-        with mck.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
+        with mock.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
             c_ptime = m_repo.current_value('proc.psinfo.utime',111)
             fetch_call_count = method.call_count
 
@@ -126,7 +126,7 @@ class ReportingMetricRepositoryTest(unittest.TestCase):
         m_repo.current_cached_values = {'proc.psinfo.utime':{111:12354}}
         fetch_call_count = 0
 
-        with mck.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
+        with mock.patch.object(m_repo,'_ReportingMetricRepository__fetch_current_values',return_value={111:12345}) as method:
             c_ptime = m_repo.current_value('proc.psinfo.utime',111)
             fetch_call_count = method.call_count
 
