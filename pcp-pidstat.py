@@ -54,32 +54,24 @@ class ReportingMetricRepository:
             if not metric in self.current_cached_values.keys():
                 self.current_cached_values[metric] = self.__fetch_previous_values(metric,instance)
             return self.current_cached_values[metric]
-class UserCpuUsage:
-    def __init__(self, group):
-        self.group = group
-        self.__current = None
-        self.__previous = None
+class CpuUsage:
+    def __init__(self, metric_repository):
+        self.__metric_repository = metric_repository
 
-    def for_instance(self, instance, delta_time):
-        if  self.__current_value(instance) is None:
-            return None
-        if self.__previous_value(instance) is None:
-            return 0
-        return 100 * float(self.__current_value(instance) - self.__previous_value(instance)) / 1000 * delta_time
+    def user_for_instance(self, instance, delta_time):
+        result =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
+        result = float("%.2f"%result)
+        return result
 
-    def __current_value(self, instance):
-        if self.__current is None:
-            self.__current = dict(map(lambda x: (x[0].inst, x[2]), self.group['proc.psinfo.utime'].netValues))
-        return self.__current.get(instance, None)
+    def guest_for_instance(self, instance, delta_time):
+        result =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
+        result = float("%.2f"%result)
+        return result
 
-    def __previous_value(self, instance):
-        if self.__previous is None:
-            raw_previous_values = self.group['proc.psinfo.utime'].netPrevValues
-            if raw_previous_values is None:
-                return None
-            self.__previous = dict(map(lambda x: (x[0].inst, x[2]), raw_previous_values))
-        return self.__previous.get(instance, None)
-
+    def system_for_instance(self, instance, delta_time):
+        result = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
+        result = float("%.2f"%result)
+        return result
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
