@@ -59,19 +59,16 @@ class CpuUsage:
         self.__metric_repository = metric_repository
 
     def user_for_instance(self, instance, delta_time):
-        result =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
-        result = float("%.2f"%result)
-        return result
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
 
     def guest_for_instance(self, instance, delta_time):
-        result =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
-        result = float("%.2f"%result)
-        return result
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
 
     def system_for_instance(self, instance, delta_time):
-        result = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
-        result = float("%.2f"%result)
-        return result
+        percent_of_time = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
