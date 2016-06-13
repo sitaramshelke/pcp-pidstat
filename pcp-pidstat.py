@@ -71,16 +71,8 @@ class CpuUsage:
         return float("%.2f"%percent_of_time)
 
     def cpuusage_for_instance(self, instance, delta_time):
-        c_cpu_time = self.__metric_repository.current_value('proc.psinfo.utime',instance)
-        c_cpu_time += self.__metric_repository.current_value('proc.psinfo.guest_time',instance)
-        c_cpu_time += self.__metric_repository.current_value('proc.psinfo.stime',instance)
+        return self.user_for_instance(instance,delta_time)+self.guest_for_instance(instance,delta_time)+ self.system_for_instance(instance,delta_time)
 
-        p_cpu_time = self.__metric_repository.previous_value('proc.psinfo.utime',instance)
-        p_cpu_time += self.__metric_repository.previous_value('proc.psinfo.guest_time',instance)
-        p_cpu_time += self.__metric_repository.previous_value('proc.psinfo.stime',instance)
-
-        percent_of_time = 100 * float(c_cpu_time - p_cpu_time) / float(1000 * delta_time)
-        return float("%.2f"%percent_of_time)
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
