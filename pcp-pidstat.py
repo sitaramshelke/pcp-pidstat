@@ -43,17 +43,17 @@ class ReportingMetricRepository:
         if not metric in self.group:
             return None
         if instance:
-            if not metric in self.current_cached_values.keys():
+            if not metric in self.previous_cached_values.keys():
                 lst = self.__fetch_previous_values(metric,instance)
-                self.current_cached_values[metric] = lst
-            if instance in self.current_cached_values[metric].keys():
-                return self.current_cached_values[metric].get(instance,None)
+                self.previous_cached_values[metric] = lst
+            if instance in self.previous_cached_values[metric].keys():
+                return self.previous_cached_values[metric].get(instance,None)
             else:
-                return None
+                return 0
         else:
-            if not metric in self.current_cached_values.keys():
-                self.current_cached_values[metric] = self.__fetch_previous_values(metric,instance)
-            return self.current_cached_values[metric]
+            if not metric in self.previous_cached_values.keys():
+                self.previous_cached_values[metric] = self.__fetch_previous_values(metric,instance)
+            return self.previous_cached_values[metric]
 class CpuUsage:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
@@ -68,6 +68,18 @@ class CpuUsage:
 
     def system_for_instance(self, instance, delta_time):
         percent_of_time = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def cpuusage_for_instance(self, instance, delta_time):
+        c_cpu_time = self.__metric_repository.current_value('proc.psinfo.utime',instance)
+        c_cpu_time += self.__metric_repository.current_value('proc.psinfo.guest_time',instance)
+        c_cpu_time += self.__metric_repository.current_value('proc.psinfo.stime',instance)
+
+        p_cpu_time = self.__metric_repository.previous_value('proc.psinfo.utime',instance)
+        p_cpu_time += self.__metric_repository.previous_value('proc.psinfo.guest_time',instance)
+        p_cpu_time += self.__metric_repository.previous_value('proc.psinfo.stime',instance)
+
+        percent_of_time = 100 * float(c_cpu_time - p_cpu_time) / float(1000 * delta_time)
         return float("%.2f"%percent_of_time)
 
 # more pmOptions to be set here
@@ -164,25 +176,14 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
         interval_in_seconds = self.timeStampDelta(group)
 
-        user_cpu_usage = UserCpuUsage(group)
+        metric_repository = ReportingMetricRepository(group)
+        cpu_usage = CpuUsage(metric_repository)
 
         for inst in inst_list:
-            if inst in p_usertimes: #if prvious value is available for the instance
-                percusertime[inst] = user_cpu_usage.for_instance(inst, interval_in_seconds)
-                percguesttime[inst] = 100*float(c_guesttimes[inst] - p_guesttimes[inst])/1000*interval_in_seconds
-                percsystime[inst] = 100*float(c_systimes[inst] - p_systimes[inst])/1000*interval_in_seconds
-
-                c_proctimes = c_usertimes[inst]+c_systimes[inst]+percguesttime[inst]
-                p_proctimes = p_usertimes[inst]+p_systimes[inst]+percguesttime[inst]
-            else: #if process is newly started and previous value is not available
-                percusertime[inst] = user_cpu_usage.for_instance(inst, interval_in_seconds)
-                percguesttime[inst] = 100*float(c_guesttimes[inst])/1000*interval_in_seconds
-                percsystime[inst] = 100*float(c_systimes[inst])/1000*interval_in_seconds
-
-                c_proctimes = c_usertimes[inst]+c_systimes[inst]+percguesttime[inst]
-                p_proctimes = 0
-
-            perccpuusage[inst] = (100 * float(c_proctimes-p_proctimes))/1000*interval_in_seconds
+            percusertime[inst] = cpu_usage.user_for_instance(inst, interval_in_seconds)
+            percguesttime[inst] = cpu_usage.guest_for_instance(inst, interval_in_seconds)
+            percsystime[inst] = cpu_usage.system_for_instance(inst, interval_in_seconds)
+            perccpuusage[inst] = cpu_usage.cpuusage_for_instance(inst, interval_in_seconds)
 
         inst_list.sort()
         for inst in inst_list:
