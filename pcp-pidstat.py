@@ -1,4 +1,5 @@
 import sys
+import re
 from pcp import pmcc
 from pcp import pmapi
 
@@ -6,7 +7,8 @@ from pcp import pmapi
 PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','proc.psinfo.utime',
                     'proc.psinfo.stime','proc.psinfo.guest_time','proc.psinfo.processor',
                     'proc.id.uid','proc.psinfo.cmd','kernel.all.cpu.user','kernel.all.cpu.vuser',
-                    'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle']
+                    'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle',
+                    'proc.id.uid_nm']
 class ReportingMetricRepository:
     def __init__(self,group):
         self.group = group
@@ -76,12 +78,30 @@ class CpuUsage:
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
+    GFlag = ""
+    IFlag = 0
+    UFlag = 0
+    UStr = ""
+    def extraOptions(self, opt,optarg, index):
+        if opt == 'G':
+            PidstatOptions.GFlag = optarg
+        elif opt == 'I':
+            PidstatOptions.IFlag = 1
+        elif opt == "U":
+            PidstatOptions.UFlag = 1
+            PidstatOptions.UStr = optarg
+
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"s:t:V?")
+        pmapi.pmOptions.__init__(self,"s:t:G:IU:V?")
+        self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
+        self.pmSetLongOption("process_name",1,"G","process name","Display  only  processes whose command name includes the string process_name.  This string can be a regular expression.",)
+        self.pmSetLongOption("",0,"I","","In  an  SMP environment, indicate that tasks CPU usage should be divided by the total number of processors")
+        self.pmSetLongOption("user_name",0,"U","[username]","Display  the real user name of the tasks being monitored instead of the UID.  If username is specified, then only tasks belonging to the specified user are displayed.")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
+
 # reporting class
 class PidstatReport(pmcc.MetricGroupPrinter):
     infoCount = 0      #print machine info only once
@@ -100,7 +120,10 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     def get_ncpu(self,group):
         return group['hinv.ncpu'].netValues[0][2]
     def print_header(self):
-        print "Timestamp\tUID\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
+        if PidstatOptions.UFlag:
+            print "Timestamp\tUName\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
+        else:
+            print "Timestamp\tUID\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
 
     def instlist(self, group, name):
         return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues)).keys()
@@ -130,6 +153,8 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         commandnames = self.curVals(group,'proc.psinfo.cmd')    #names of all processes
         cpuids = self.curVals(group,'proc.psinfo.processor')    #last processor id of the process
         userids = self.curVals(group,'proc.id.uid')             #user id of the process
+        num_cpu = self.get_ncpu(group)
+        user_names = self.curVals(group,'proc.id.uid_nm')
 
         #Fetch per Process Current and previous values
         c_usertimes = self.curVals(group,'proc.psinfo.utime')   #time spent in user mode
@@ -161,10 +186,17 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             percsystime[inst] = cpu_usage.system_for_instance(inst, interval_in_seconds)
             perccpuusage[inst] = cpu_usage.cpuusage_for_instance(inst, interval_in_seconds)
 
+            if PidstatOptions.IFlag:
+                perccpuusage[inst] = perccpuusage[inst]/int(num_cpu)
+
         inst_list.sort()
         for inst in inst_list:
             if inst != '':
-                print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
+                if PidstatOptions.UFlag:
+                    if re.search(PidstatOptions.UStr,user_names[inst]) != None:
+                        print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],user_names[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
+                elif re.search(PidstatOptions.GFlag,commandnames[inst]) != None:
+                    print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
 
         print ("\n")
 
