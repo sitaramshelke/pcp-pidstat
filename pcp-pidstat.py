@@ -77,7 +77,9 @@ class CpuUsage:
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     def __init__(self):
-        pmapi.pmOptions.__init__(self)
+        pmapi.pmOptions.__init__(self,"s:t:V?")
+        self.pmSetLongOptionSamples()
+        self.pmSetLongOptionInterval()
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 # reporting class
@@ -115,10 +117,10 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             self.print_machine_info(group)  #print machine info once at the top
             self.infoCount = 1
 
-        self.print_header()                 #print header labels everytime
         if group['proc.psinfo.utime'].netPrevValues == None:
             # need two fetches to report rate converted counter metrics
             return
+        self.print_header()                 #print header labels everytime
 
         timestamp = group.contextCache.pmCtime(int(group.timestamp)).rstrip().split()
 
@@ -164,14 +166,13 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             if inst != '':
                 print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
 
-        print ("\n\n")
+        print ("\n")
 
 
 
 if __name__ == "__main__":
     try:
         opts = PidstatOptions()
-        # opts.pmSetOptionSamples('1')
         manager = pmcc.MetricGroupManager.builder(opts,sys.argv)
         manager['pidstat'] = PIDSTAT_METRICS
         manager.printer = PidstatReport()
