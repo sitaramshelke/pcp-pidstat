@@ -103,10 +103,6 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     def instlist(self, group, name):
         return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues)).keys()
 
-    def curVal(self,group,name):
-        return group[name].netValues[0][2]
-    def prevVal(self,group,name):
-        return group[name].netPrevValues[0][2]
     def curVals(self, group, name):
         return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues))
 
@@ -143,21 +139,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         c_systimes = self.curVals(group,'proc.psinfo.stime')        #time spent in sys mode
         p_systimes = self.prevVals(group,'proc.psinfo.stime')
 
-        #Fetch total times for cpu
-        c_totalusertimes = self.curVal(group,'kernel.all.cpu.vuser')    #time spent in user mode excluding guest
-        p_totalusertimes = self.prevVal(group,'kernel.all.cpu.vuser')
 
-        c_totalguesttimes = self.curVal(group,'kernel.all.cpu.guest')   #time spent in guest mode
-        p_totalguesttimes = self.prevVal(group,'kernel.all.cpu.guest')
-
-        c_totalsystimes = self.curVal(group,'kernel.all.cpu.sys')       #time spent in sys mode
-        p_totalsystimes = self.prevVal(group,'kernel.all.cpu.sys')
-
-        c_totalnicetimes = self.curVal(group,'kernel.all.cpu.nice')     #time spent in user nice mode
-        p_totalnicetimes = self.prevVal(group,'kernel.all.cpu.nice')
-
-        c_totalidletimes = self.curVal(group,'kernel.all.cpu.idle')     #time spent in idle mode
-        p_totalidletimes = self.prevVal(group,'kernel.all.cpu.idle')
 
         #calculate percentage values
         percusertime = {}
