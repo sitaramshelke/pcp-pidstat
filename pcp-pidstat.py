@@ -1,5 +1,6 @@
 import sys
 import re
+import os
 from pcp import pmcc
 from pcp import pmapi
 
@@ -82,23 +83,36 @@ class PidstatOptions(pmapi.pmOptions):
     IFlag = 0
     UFlag = 0
     UStr = ""
+    pFlag = ""
+    plist = []
     def extraOptions(self, opt,optarg, index):
         if opt == 'G':
             PidstatOptions.GFlag = optarg
         elif opt == 'I':
             PidstatOptions.IFlag = 1
-        elif opt == "U":
+        elif opt == 'U':
             PidstatOptions.UFlag = 1
             PidstatOptions.UStr = optarg
+        elif opt == 'P':
+            if optarg == "ALL" or optarg == "SELF":
+                PidstatOptions.pFlag = optarg
+            else:
+                PidstatOptions.pFlag = "ALL"
+                try:
+                    PidstatOptions.plist = map(lambda x:int(x),optarg.split(','))
+                except ValueError as e:
+                    print "Invalid Process Id List: use comma separated pids without whitespaces"
+                    sys.exit(1)
 
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"s:t:G:IU:V?")
+        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:V?")
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
-        self.pmSetLongOption("process_name",1,"G","process name","Display  only  processes whose command name includes the string process_name.  This string can be a regular expression.",)
+        self.pmSetLongOption("process_name",1,"G","process name","Display  only  processes whose command name includes the string process_name.  This string can be a regular expression.")
         self.pmSetLongOption("",0,"I","","In  an  SMP environment, indicate that tasks CPU usage should be divided by the total number of processors")
         self.pmSetLongOption("user_name",0,"U","[username]","Display  the real user name of the tasks being monitored instead of the UID.  If username is specified, then only tasks belonging to the specified user are displayed.")
+        self.pmSetLongOption("pid_list",1,"P","pid","Select tasks (processes) for which statistics are to be reported.  pid is the process identification number. The SELF keyword  indicates that statistics are to be reported for the pidstat process itself, whereas the ALL keyword indicates that statistics are to be reported for all the tasks managed by the system.")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
@@ -195,7 +209,13 @@ class PidstatReport(pmcc.MetricGroupPrinter):
                 if PidstatOptions.UFlag:
                     if re.search(PidstatOptions.UStr,user_names[inst]) != None:
                         print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],user_names[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
-                elif re.search(PidstatOptions.GFlag,commandnames[inst]) != None:
+                elif PidstatOptions.plist:
+                     if inst in PidstatOptions.plist:
+                         print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
+                elif PidstatOptions.pFlag == "SELF":
+                    if inst == os.getpid():
+                        print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\tpcp-pidstat" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst]))
+                elif re.search(PidstatOptions.GFlag,commandnames[inst]) != None or PidstatOptions.pFlag == "ALL":
                     print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
 
         print ("\n")
