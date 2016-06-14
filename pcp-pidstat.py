@@ -112,7 +112,7 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOption("process_name",1,"G","process name","Display  only  processes whose command name includes the string process_name.  This string can be a regular expression.")
         self.pmSetLongOption("",0,"I","","In  an  SMP environment, indicate that tasks CPU usage should be divided by the total number of processors")
         self.pmSetLongOption("user_name",0,"U","[username]","Display  the real user name of the tasks being monitored instead of the UID.  If username is specified, then only tasks belonging to the specified user are displayed.")
-        self.pmSetLongOption("pid_list",1,"P","pid","Select tasks (processes) for which statistics are to be reported.  pid is the process identification number. The SELF keyword  indicates that statistics are to be reported for the pidstat process itself, whereas the ALL keyword indicates that statistics are to be reported for all the tasks managed by the system.")
+        self.pmSetLongOption("pid_list",1,"P","pid","Select tasks (processes) for which statistics are to be reported.  pid is the process identification number. The SELF keyword  indicates that statistics are to be reported for the pidstat process itself, whereas the ALL keyword indicates that statistics are to be reported for all the tasks managed by the system. This options also overrides other filtering options such as -U and -G")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
@@ -148,6 +148,12 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     def prevVals(self, group, name):
         return dict(map(lambda x: (x[0].inst, x[2]), group[name].netPrevValues))
 
+    def matchInstances(self,inst_list,values_list,regexp):
+        matched_list = []
+        for inst in inst_list:
+            if re.search(regexp,values_list[inst]):
+                matched_list.append(inst)
+        return matched_list
     def report(self,manager):
         group = manager['pidstat']
         if not self.infoCount:
@@ -204,18 +210,22 @@ class PidstatReport(pmcc.MetricGroupPrinter):
                 perccpuusage[inst] = perccpuusage[inst]/int(num_cpu)
 
         inst_list.sort()
-        for inst in inst_list:
+        filtered_inst_list = inst_list
+        if PidstatOptions.plist:
+            filtered_inst_list = PidstatOptions.plist
+        elif PidstatOptions.pFlag == "SELF":
+            filtered_inst_list = [os.getpid()]
+        else:
+            if PidstatOptions.UFlag:
+                filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.UStr)
+            if PidstatOptions.GFlag != "":
+                filtered_inst_list = self.matchInstances(filtered_inst_list,commandnames,PidstatOptions.GFlag)
+
+        for inst in filtered_inst_list:
             if inst != '':
                 if PidstatOptions.UFlag:
-                    if re.search(PidstatOptions.UStr,user_names[inst]) != None:
-                        print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],user_names[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
-                elif PidstatOptions.plist:
-                     if inst in PidstatOptions.plist:
-                         print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
-                elif PidstatOptions.pFlag == "SELF":
-                    if inst == os.getpid():
-                        print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\tpcp-pidstat" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst]))
-                elif re.search(PidstatOptions.GFlag,commandnames[inst]) != None or PidstatOptions.pFlag == "ALL":
+                    print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],user_names[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
+                else:
                     print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp[3],userids[inst],pids[inst],percusertime[inst],percsystime[inst],percguesttime[inst],perccpuusage[inst],cpuids[inst],commandnames[inst]))
 
         print ("\n")
