@@ -88,15 +88,9 @@ class CpuUsage:
         return pid_dict.values()
 
     def __create_process_cpu_usage(self, instance, delta_time):
-        user_percent =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
-        user_percent = float("%.2f"%user_percent)
-
-        guest_percent =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
-        guest_percent = float("%.2f"%guest_percent)
-
-        system_percent = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
-        system_percent = float("%.2f"%system_percent)
-
+        user_percent =  self.user_for_instance(instance,delta_time)
+        guest_percent =  self.guest_for_instance(instance,delta_time)
+        system_percent =  self.system_for_instance(instance,delta_time)
         pid = self.pid_for_instance(instance)
         process_name= self.process_name_for_instance(instance)
         cpu_id = self.cpu_number_for_instance(instance)
@@ -104,6 +98,18 @@ class CpuUsage:
         user_name = self.user_name_for_instance(instance)
 
         return ProcessCpuUsage(user_percent,guest_percent,system_percent,pid,process_name,cpu_id,user_id,user_name)
+
+    def user_for_instance(self, instance, delta_time):
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def guest_for_instance(self, instance, delta_time):
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def system_for_instance(self, instance, delta_time):
+        percent_of_time = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
+        return float("%.2f"%percent_of_time)
 
     def pid_for_instance(self, instance):
         return self.__metric_repository.current_value('proc.psinfo.pid', instance)

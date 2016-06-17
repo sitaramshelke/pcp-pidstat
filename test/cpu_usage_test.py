@@ -38,16 +38,16 @@ class TestUserCpuUsage(unittest.TestCase):
         self.assertEquals(system_percent_used, 10.0)
 
 
-    def test_cpu_usage_system_time_percentage_for_instance(self):
-        m_repo_mock = Mock()
-        cpu_usage = CpuUsage(m_repo_mock)
-        cpu_usage.user_for_instance = Mock(return_value=2.23)
-        cpu_usage.guest_for_instance = Mock(return_value=0.00)
-        cpu_usage.system_for_instance = Mock(return_value=4.12)
-
-        cpu_percent_used = cpu_usage.cpuusage_for_instance(123, 1.34)
-
-        self.assertEquals(cpu_percent_used, 6.35)
+    # def test_cpu_usage_system_time_percentage_for_instance(self):
+    #     m_repo_mock = Mock()
+    #     cpu_usage = CpuUsage(m_repo_mock)
+    #     cpu_usage.user_for_instance = Mock(return_value=2.23)
+    #     cpu_usage.guest_for_instance = Mock(return_value=0.00)
+    #     cpu_usage.system_for_instance = Mock(return_value=4.12)
+    #
+    #     cpu_percent_used = cpu_usage.cpuusage_for_instance(123, 1.34)
+    #
+    #     self.assertEquals(cpu_percent_used, 6.35)
 
 if __name__ == '__main__':
     unittest.main()
