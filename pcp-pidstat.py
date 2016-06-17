@@ -152,10 +152,10 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
-        self.pmSetLongOption("process_name",1,"G","process name","Select process names using regular expression.")
+        self.pmSetLongOption("process-name",1,"G","process name","Select process names using regular expression.")
         self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor")
-        self.pmSetLongOption("user_name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name")
-        self.pmSetLongOption("pid_list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes")
+        self.pmSetLongOption("user-name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name")
+        self.pmSetLongOption("pid-list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
