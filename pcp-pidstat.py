@@ -115,30 +115,38 @@ class CpuUsage:
 
 
 class PriorityInformation:
-    def __init__(self,user_id,pid,priority,policy_int,policy,name):
-        self.user_id = user_id
-        self.pid = pid
-        self.priority = priority
-        self.policy_int = policy_int
-        self.policy = policy
-        self.process_name = name
+    def __init__(self, instance, metrics_repository):
+        self.instance = instance
+        self.__metric_repository = metrics_repository
+
+    def pid(self):
+        return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
+
+    def user_id(self):
+        return self.__metric_repository.current_value('proc.id.uid', self.instance)
+
+    def process_name(self):
+        return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
+
+    def priority(self):
+        return self.__metric_repository.current_value('proc.psinfo.rt_priority', self.instance)
+
+    def policy_int(self):
+        return self.__metric_repository.current_value('proc.psinfo.policy', self.instance)
+
+    def policy(self):
+        policy_int = self.__metric_repository.current_value('proc.psinfo.policy', self.instance)
+        return SCHED_POLICY[policy_int]
 
 class ProcessPriority:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
     def get_processes(self):
-        inst_list = self.__pids()
-        return map((lambda pid:self.__process_priority_info_for_instance(pid)),inst_list)
+        return map((lambda pid: (PriorityInformation(pid,self.__metric_repository))), self.__pids())
+
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
         return pid_dict.values()
-    def __process_priority_info_for_instance(self,instance):
-        user_id = self.__metric_repository.current_value('proc.id.uid', instance)
-        priority = self.__metric_repository.current_value('proc.psinfo.rt_priority', instance)
-        policy_int = self.__metric_repository.current_value('proc.psinfo.policy', instance)
-        policy = SCHED_POLICY[policy_int]
-        command_name = self.__metric_repository.current_value('proc.psinfo.cmd', instance)
-        return PriorityInformation(user_id, instance, priority, policy_int, policy, command_name)
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
@@ -226,7 +234,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
     def print_process_stat(self, timestamp, processes, inst):
         if PidstatOptions.RFlag:
-            print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id,processes[inst].pid,processes[inst].priority,processes[inst].policy,processes[inst].process_name))
+            print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].priority(),processes[inst].policy(),processes[inst].process_name()))
         elif PidstatOptions.UFlag:
             print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
         else:
@@ -254,11 +262,11 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         if(PidstatOptions.RFlag):
             process_priority = ProcessPriority(metric_repository)
             process_list = process_priority.get_processes()
-            inst_list = map(lambda x: x.pid,process_list)
-            processes = dict(map(lambda x: (x.pid,x),process_list))
+            inst_list = map(lambda x: x.pid(),process_list)
+            processes = dict(map(lambda x: (x.pid(),x),process_list))
 
-            filtered_inst_list = [process.pid for process in process_list if process.priority]
-            processes = dict(map(lambda x: (x.pid,x),process_list))
+            filtered_inst_list = [process.pid() for process in process_list if process.policy_int() > 0]
+            processes = dict(map(lambda x: (x.pid(),x),process_list))
         else:
             cpu_usage = CpuUsage(metric_repository)
             process_list = cpu_usage.get_processes(interval_in_seconds)
