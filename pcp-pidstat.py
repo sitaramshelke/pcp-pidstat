@@ -114,7 +114,7 @@ class CpuUsage:
         return pid_dict.values()
 
 
-class PriorityInformation:
+class ProcessPriority:
     def __init__(self, instance, metrics_repository):
         self.instance = instance
         self.__metric_repository = metrics_repository
@@ -138,11 +138,11 @@ class PriorityInformation:
         policy_int = self.__metric_repository.current_value('proc.psinfo.policy', self.instance)
         return SCHED_POLICY[policy_int]
 
-class ProcessPriority:
+class CpuProcessPriorities:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
     def get_processes(self):
-        return map((lambda pid: (PriorityInformation(pid,self.__metric_repository))), self.__pids())
+        return map((lambda pid: (ProcessPriority(pid,self.__metric_repository))), self.__pids())
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
@@ -260,7 +260,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         processes = {}
 
         if(PidstatOptions.RFlag):
-            process_priority = ProcessPriority(metric_repository)
+            process_priority = CpuProcessPriorities(metric_repository)
             process_list = process_priority.get_processes()
             inst_list = map(lambda x: x.pid(),process_list)
             processes = dict(map(lambda x: (x.pid(),x),process_list))
