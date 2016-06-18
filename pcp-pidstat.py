@@ -9,7 +9,9 @@ PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','pro
                     'proc.psinfo.stime','proc.psinfo.guest_time','proc.psinfo.processor',
                     'proc.id.uid','proc.psinfo.cmd','kernel.all.cpu.user','kernel.all.cpu.vuser',
                     'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle',
-                    'proc.id.uid_nm']
+                    'proc.id.uid_nm', 'proc.psinfo.rt_priority', 'proc.psinfo.policy']
+SCHED_POLICY = ['NORMAL','FIFO','RR','BATCH','','IDLE','DEADLINE']
+
 class ReportingMetricRepository:
     def __init__(self,group):
         self.group = group
@@ -126,16 +128,45 @@ class CpuUsage:
     def user_name_for_instance(self, instance):
         return self.__metric_repository.current_value('proc.id.uid_nm', instance)
 
+class PriorityInformation:
+    def __init__(self,user_id,pid,priority,policy_int,policy,name):
+        self.user_id = user_id
+        self.pid = pid
+        self.priority = priority
+        self.policy_int = policy_int
+        self.policy = policy
+        self.process_name = name
+
+class ProcessPriority:
+    def __init__(self, metric_repository):
+        self.__metric_repository = metric_repository
+    def get_processes(self):
+        inst_list = self.__pids()
+        return map((lambda pid:self.__process_priority_info_for_instance(pid)),inst_list)
+    def __pids(self):
+        pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
+        return pid_dict.values()
+    def __process_priority_info_for_instance(self,instance):
+        user_id = self.__metric_repository.current_value('proc.id.uid', instance)
+        priority = self.__metric_repository.current_value('proc.psinfo.rt_priority', instance)
+        policy_int = self.__metric_repository.current_value('proc.psinfo.policy', instance)
+        policy = SCHED_POLICY[policy_int]
+        command_name = self.__metric_repository.current_value('proc.psinfo.cmd', instance)
+        return PriorityInformation(user_id, instance, priority, policy_int, policy, command_name)
+
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     GFlag = ""
+    RFlag = 0
     IFlag = 0
     UFlag = 0
     UStr = ""
     pFlag = ""
     plist = []
     def extraOptions(self, opt,optarg, index):
-        if opt == 'G':
+        if opt == 'R':
+            PidstatOptions.RFlag = 1
+        elif opt == 'G':
             PidstatOptions.GFlag = optarg
         elif opt == 'I':
             PidstatOptions.IFlag = 1
@@ -154,7 +185,7 @@ class PidstatOptions(pmapi.pmOptions):
                     sys.exit(1)
 
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:V?")
+        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:RV?")
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
@@ -162,6 +193,7 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor")
         self.pmSetLongOption("user-name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name")
         self.pmSetLongOption("pid-list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes")
+        self.pmSetLongOption("",0,"R","","Report realtime priority and scheduling policy information.")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
@@ -183,10 +215,12 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     def get_ncpu(self,group):
         return group['hinv.ncpu'].netValues[0][2]
     def print_header(self):
-        if PidstatOptions.UFlag:
-            print "Timestamp\tUName\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
+        if PidstatOptions.RFlag:
+            print "Timestamp\tUID\tPID\tprio\tpolicy\tCommand"
+        elif PidstatOptions.UFlag:
+            print "Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand"
         else:
-            print "Timestamp\tUID\tPID\t%usr\t%system\t%guest\t%CPU\tCPU\tCommand"
+            print "Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand"
 
     def instlist(self, group, name):
         return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues)).keys()
@@ -205,7 +239,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         return matched_list
 
     def print_process_stat(self, timestamp, processes, inst):
-        if PidstatOptions.UFlag:
+        if PidstatOptions.RFlag:
+            print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id,processes[inst].pid,processes[inst].priority,processes[inst].policy,processes[inst].process_name))
+        elif PidstatOptions.UFlag:
             print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name,processes[inst].pid,processes[inst].user_percent,processes[inst].system_percent,processes[inst].guest_percent,processes[inst].total_percent,processes[inst].cpu_number,processes[inst].process_name))
         else:
             print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id,processes[inst].pid,processes[inst].user_percent,processes[inst].system_percent,processes[inst].guest_percent,processes[inst].total_percent,processes[inst].cpu_number,processes[inst].process_name))
@@ -226,25 +262,37 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         ncpu = self.get_ncpu(group)
 
         metric_repository = ReportingMetricRepository(group)
-        cpu_usage = CpuUsage(metric_repository)
-        process_list = cpu_usage.get_processes(interval_in_seconds)
+        filtered_inst_list = []
+        processes = {}
 
-        inst_list = map(lambda x: x.pid,process_list)
-        user_names = dict(map(lambda x: (x.pid,x.user_name),process_list))
-        command_names = dict(map(lambda x: (x.pid,x.process_name),process_list))
-        processes = dict(map(lambda x: (x.pid,x),process_list))
+        if(PidstatOptions.RFlag):
+            process_priority = ProcessPriority(metric_repository)
+            process_list = process_priority.get_processes()
+            inst_list = map(lambda x: x.pid,process_list)
+            processes = dict(map(lambda x: (x.pid,x),process_list))
 
-        filtered_inst_list = inst_list
-
-        if PidstatOptions.plist:
-            filtered_inst_list = PidstatOptions.plist
-        elif PidstatOptions.pFlag == "SELF":
-            filtered_inst_list = [os.getpid()]
+            filtered_inst_list = [process.pid for process in process_list if process.priority]
+            processes = dict(map(lambda x: (x.pid,x),process_list))
         else:
-            if PidstatOptions.UFlag:
-                filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.UStr)
-            if PidstatOptions.GFlag != "":
-                filtered_inst_list = self.matchInstances(filtered_inst_list,command_names,PidstatOptions.GFlag)
+            cpu_usage = CpuUsage(metric_repository)
+            process_list = cpu_usage.get_processes(interval_in_seconds)
+
+            inst_list = map(lambda x: x.pid,process_list)
+            user_names = dict(map(lambda x: (x.pid,x.user_name),process_list))
+            command_names = dict(map(lambda x: (x.pid,x.process_name),process_list))
+            processes = dict(map(lambda x: (x.pid,x),process_list))
+
+            filtered_inst_list = inst_list
+
+            if PidstatOptions.plist:
+                filtered_inst_list = PidstatOptions.plist
+            elif PidstatOptions.pFlag == "SELF":
+                filtered_inst_list = [os.getpid()]
+            else:
+                if PidstatOptions.UFlag:
+                    filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.UStr)
+                if PidstatOptions.GFlag != "":
+                    filtered_inst_list = self.matchInstances(filtered_inst_list,command_names,PidstatOptions.GFlag)
 
         filtered_inst_list.sort()
 
