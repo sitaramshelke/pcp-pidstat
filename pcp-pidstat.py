@@ -67,66 +67,52 @@ class ReportingMetricRepository:
         return dict(map(lambda x: (x[0].inst, x[2]), self.group[metric_name].netPrevValues))
 
 class ProcessCpuUsage:
-    def __init__(self, user_percent, guest_percent, system_percent, pid, process_name, cpu_number, user_id, user_name):
-        self.user_percent = user_percent
-        self.guest_percent = guest_percent
-        self.system_percent = system_percent
-        self.total_percent = user_percent + guest_percent + system_percent
-        self.pid = pid
-        self.process_name = process_name
-        self.cpu_number = cpu_number
-        self.user_id = user_id
-        self.user_name = user_name
+    def __init__(self, instance, delta_time, metrics_repository):
+        self.instance = instance
+        self.__delta_time = delta_time
+        self.__metric_repository = metrics_repository
+    def user_percent(self):
+        # Pulled out of CpuUsage class
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.utime', self.instance)) / float(1000 * self.__delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def guest_percent(self):
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', self.instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', self.instance)) / float(1000 * self.__delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def system_percent(self):
+        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.stime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.stime', self.instance)) / float(1000 * self.__delta_time)
+        return float("%.2f"%percent_of_time)
+
+    def total_percent(self):
+        return self.user_percent()+self.guest_percent()+self.system_percent()
+
+    def pid(self):
+        return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
+
+    def process_name(self):
+        return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
+
+    def cpu_number(self):
+        return self.__metric_repository.current_value('proc.psinfo.processor', self.instance)
+
+    def user_id(self):
+        return self.__metric_repository.current_value('proc.id.uid', self.instance)
+
+    def user_name(self):
+        return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
 
 class CpuUsage:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
 
     def get_processes(self, delta_time):
-        return map(lambda pid: (self.__create_process_cpu_usage(pid,delta_time)), self.__pids())
+        return map(lambda pid: (ProcessCpuUsage(pid,delta_time,self.__metric_repository)), self.__pids())
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
         return pid_dict.values()
 
-    def __create_process_cpu_usage(self, instance, delta_time):
-        user_percent =  self.user_for_instance(instance,delta_time)
-        guest_percent =  self.guest_for_instance(instance,delta_time)
-        system_percent =  self.system_for_instance(instance,delta_time)
-        pid = self.pid_for_instance(instance)
-        process_name= self.process_name_for_instance(instance)
-        cpu_id = self.cpu_number_for_instance(instance)
-        user_id = self.user_id_for_instance(instance)
-        user_name = self.user_name_for_instance(instance)
-
-        return ProcessCpuUsage(user_percent,guest_percent,system_percent,pid,process_name,cpu_id,user_id,user_name)
-
-    def user_for_instance(self, instance, delta_time):
-        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', instance) - self.__metric_repository.previous_value('proc.psinfo.utime', instance)) / float(1000 * delta_time)
-        return float("%.2f"%percent_of_time)
-
-    def guest_for_instance(self, instance, delta_time):
-        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', instance)) / float(1000 * delta_time)
-        return float("%.2f"%percent_of_time)
-
-    def system_for_instance(self, instance, delta_time):
-        percent_of_time = 100 * float(self.__metric_repository.current_value('proc.psinfo.stime', instance) - self.__metric_repository.previous_value('proc.psinfo.stime', instance)) / float(1000 * delta_time)
-        return float("%.2f"%percent_of_time)
-
-    def pid_for_instance(self, instance):
-        return self.__metric_repository.current_value('proc.psinfo.pid', instance)
-
-    def process_name_for_instance(self, instance):
-        return self.__metric_repository.current_value('proc.psinfo.cmd', instance)
-
-    def cpu_number_for_instance(self, instance):
-        return self.__metric_repository.current_value('proc.psinfo.processor', instance)
-
-    def user_id_for_instance(self, instance):
-        return self.__metric_repository.current_value('proc.id.uid', instance)
-
-    def user_name_for_instance(self, instance):
-        return self.__metric_repository.current_value('proc.id.uid_nm', instance)
 
 class PriorityInformation:
     def __init__(self,user_id,pid,priority,policy_int,policy,name):
@@ -242,9 +228,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         if PidstatOptions.RFlag:
             print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id,processes[inst].pid,processes[inst].priority,processes[inst].policy,processes[inst].process_name))
         elif PidstatOptions.UFlag:
-            print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name,processes[inst].pid,processes[inst].user_percent,processes[inst].system_percent,processes[inst].guest_percent,processes[inst].total_percent,processes[inst].cpu_number,processes[inst].process_name))
+            print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
         else:
-            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id,processes[inst].pid,processes[inst].user_percent,processes[inst].system_percent,processes[inst].guest_percent,processes[inst].total_percent,processes[inst].cpu_number,processes[inst].process_name))
+            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
 
     def report(self,manager):
         group = manager['pidstat']
@@ -277,10 +263,10 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             cpu_usage = CpuUsage(metric_repository)
             process_list = cpu_usage.get_processes(interval_in_seconds)
 
-            inst_list = map(lambda x: x.pid,process_list)
-            user_names = dict(map(lambda x: (x.pid,x.user_name),process_list))
-            command_names = dict(map(lambda x: (x.pid,x.process_name),process_list))
-            processes = dict(map(lambda x: (x.pid,x),process_list))
+            inst_list = map(lambda x: x.pid(),process_list)
+            user_names = dict(map(lambda x: (x.pid(),x.user_name()),process_list))
+            command_names = dict(map(lambda x: (x.pid(),x.process_name()),process_list))
+            processes = dict(map(lambda x: (x.pid(),x),process_list))
 
             filtered_inst_list = inst_list
 
