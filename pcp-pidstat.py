@@ -9,7 +9,9 @@ PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','pro
                     'proc.psinfo.stime','proc.psinfo.guest_time','proc.psinfo.processor',
                     'proc.id.uid','proc.psinfo.cmd','kernel.all.cpu.user','kernel.all.cpu.vuser',
                     'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle',
-                    'proc.id.uid_nm', 'proc.psinfo.rt_priority', 'proc.psinfo.policy']
+                    'proc.id.uid_nm', 'proc.psinfo.rt_priority', 'proc.psinfo.policy', 'proc.psinfo.minflt',
+                    'proc.psinfo.maj_flt', 'proc.psinfo.vsize', 'proc.psinfo.rss', 'mem.physmem',
+                    'proc.psinfo.cmin_flt', 'proc.psinfo.cmaj_flt']
 SCHED_POLICY = ['NORMAL','FIFO','RR','BATCH','','IDLE','DEADLINE']
 
 class ReportingMetricRepository:
@@ -148,6 +150,55 @@ class CpuProcessPriorities:
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
         return pid_dict.values()
 
+class ProcessMemoryUtil:
+    def __init__(self, instance, delta_time,  metric_repository):
+        self.instance = instance
+        self.__metric_repository = metric_repository
+        self.delta_time = delta_time
+
+    def pid(self):
+        return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
+
+    def user_id(self):
+        return self.__metric_repository.current_value('proc.id.uid', self.instance)
+
+    def process_name(self):
+        return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
+
+    def minflt(self):
+        c_min_flt = self.__metric_repository.current_value('proc.psinfo.minflt', self.instance) + self.__metric_repository.current_value('proc.psinfo.cmin_flt', self.instance)
+        p_min_flt = self.__metric_repository.previous_value('proc.psinfo.minflt', self.instance) + self.__metric_repository.previous_value('proc.psinfo.cmin_flt', self.instance)
+
+        return float("%.2f" % ((c_min_flt - p_min_flt)/self.delta_time))
+
+    def majflt(self):
+        c_maj_flt = self.__metric_repository.current_value('proc.psinfo.maj_flt', self.instance) + self.__metric_repository.current_value('proc.psinfo.cmaj_flt', self.instance)
+        p_maj_flt = self.__metric_repository.previous_value('proc.psinfo.maj_flt', self.instance) + self.__metric_repository.previous_value('proc.psinfo.cmaj_flt', self.instance)
+        maj_flt_per_sec =  (c_maj_flt - p_maj_flt)/self.delta_time
+        return float("%.2f"%maj_flt_per_sec)
+
+    def vsize(self):
+        return self.__metric_repository.current_value('proc.psinfo.vsize', self.instance)
+
+    def rss(self):
+        return self.__metric_repository.current_value('proc.psinfo.rss', self.instance)
+
+    def mem(self):
+        total_mem = self.__metric_repository.current_value('mem.physmem', None)
+        rss = self.__metric_repository.current_value('proc.psinfo.rss', self.instance)
+        return float("%.2f" % (100*float(rss)/total_mem))
+
+class CpuProcessMemoryUtil:
+    def __init__(self, metric_repository):
+        self.__metric_repository = metric_repository
+
+    def get_processes(self, delta_time):
+        return map((lambda pid: (ProcessMemoryUtil(pid, delta_time, self.__metric_repository))), self.__pids())
+
+    def __pids(self):
+        pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
+        return pid_dict.values()
+
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     GFlag = ""
@@ -158,7 +209,9 @@ class PidstatOptions(pmapi.pmOptions):
     pFlag = ""
     plist = []
     def extraOptions(self, opt,optarg, index):
-        if opt == 'R':
+        if opt == 'r':
+            PidstatOptions.rFlag = 1
+        elif opt == 'R':
             PidstatOptions.RFlag = 1
         elif opt == 'G':
             PidstatOptions.GFlag = optarg
@@ -179,15 +232,16 @@ class PidstatOptions(pmapi.pmOptions):
                     sys.exit(1)
 
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:RV?")
+        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:RrV?")
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
         self.pmSetLongOption("process-name",1,"G","process name","Select process names using regular expression.")
-        self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor")
-        self.pmSetLongOption("user-name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name")
-        self.pmSetLongOption("pid-list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes")
+        self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor.")
+        self.pmSetLongOption("user-name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name.")
+        self.pmSetLongOption("pid-list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
         self.pmSetLongOption("",0,"R","","Report realtime priority and scheduling policy information.")
+        self.pmSetLongOption("",0,"r","","Report page faults and memory utilization.")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
@@ -209,7 +263,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
     def get_ncpu(self,group):
         return group['hinv.ncpu'].netValues[0][2]
     def print_header(self):
-        if PidstatOptions.RFlag:
+        if PidstatOptions.rFlag:
+            print "Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand"
+        elif PidstatOptions.RFlag:
             print "Timestamp\tUID\tPID\tprio\tpolicy\tCommand"
         elif PidstatOptions.UFlag:
             print "Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand"
@@ -233,7 +289,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         return matched_list
 
     def print_process_stat(self, timestamp, processes, inst):
-        if PidstatOptions.RFlag:
+        if PidstatOptions.rFlag:
+            print("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].minflt(),processes[inst].majflt(),processes[inst].vsize(),processes[inst].rss(),processes[inst].mem(),processes[inst].process_name()))
+        elif PidstatOptions.RFlag:
             print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].priority(),processes[inst].policy(),processes[inst].process_name()))
         elif PidstatOptions.UFlag:
             print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
@@ -259,13 +317,21 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         filtered_inst_list = []
         processes = {}
 
-        if(PidstatOptions.RFlag):
+        if(PidstatOptions.rFlag):
+            process_memory_util = CpuProcessMemoryUtil(metric_repository)
+            process_list = process_memory_util.get_processes(1.34)
+            inst_list = map(lambda x: x.pid(),process_list)
+            processes = dict(map(lambda x: (x.pid(),x),process_list))
+
+            filtered_inst_list = [process.pid() for process in process_list if process.vsize() > 0]
+            processes = dict(map(lambda x: (x.pid(),x),process_list))
+        elif(PidstatOptions.RFlag):
             process_priority = CpuProcessPriorities(metric_repository)
             process_list = process_priority.get_processes()
             inst_list = map(lambda x: x.pid(),process_list)
             processes = dict(map(lambda x: (x.pid(),x),process_list))
 
-            filtered_inst_list = [process.pid() for process in process_list if process.policy_int() > 0]
+            filtered_inst_list = [process.pid() for process in process_list if process.vsize() > 0]
             processes = dict(map(lambda x: (x.pid(),x),process_list))
         else:
             cpu_usage = CpuUsage(metric_repository)
