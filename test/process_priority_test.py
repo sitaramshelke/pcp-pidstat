@@ -3,8 +3,7 @@ import unittest
 from pcp_pidstat import ProcessPriority
 
 class TestProcessPriority(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestProcessPriority, self).__init__(*args, **kwargs)
+    def setUp(self):
         self.__metric_repository = mock.Mock()
         self.__metric_repository.current_value = mock.Mock(side_effect=self.metric_repo_current_value_side_effect)
 

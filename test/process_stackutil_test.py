@@ -3,8 +3,7 @@ import unittest
 from pcp_pidstat import ProcessStackUtil
 
 class TestProcessStackUtil(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestProcessStackUtil, self).__init__(*args, **kwargs)
+    def setUp(self):
         self.__metric_repository = mock.Mock()
         self.__metric_repository.current_value = mock.Mock(side_effect=self.metric_repo_current_value_side_effect)
 
