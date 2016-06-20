@@ -230,14 +230,14 @@ class CpuProcessStackUtil:
 
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
-    GFlag = ""
+    process_name = None
     rFlag = 0
     RFlag = 0
     kFlag = 0
-    IFlag = 0
-    UFlag = 0
-    UStr = ""
-    pFlag = ""
+    per_processor_usage = False
+    show_process_user = False
+    filtered_process_user = None
+    pid_filter = None
     plist = []
     def extraOptions(self, opt,optarg, index):
         if opt == 'k':
@@ -247,17 +247,17 @@ class PidstatOptions(pmapi.pmOptions):
         elif opt == 'R':
             PidstatOptions.RFlag = 1
         elif opt == 'G':
-            PidstatOptions.GFlag = optarg
+            PidstatOptions.process_name = optarg
         elif opt == 'I':
-            PidstatOptions.IFlag = 1
+            PidstatOptions.per_processor_usage = True
         elif opt == 'U':
-            PidstatOptions.UFlag = 1
-            PidstatOptions.UStr = optarg
+            PidstatOptions.show_process_user = True
+            PidstatOptions.filtered_process_user = optarg
         elif opt == 'P':
             if optarg == "ALL" or optarg == "SELF":
-                PidstatOptions.pFlag = optarg
+                PidstatOptions.pid_filter = optarg
             else:
-                PidstatOptions.pFlag = "ALL"
+                PidstatOptions.pid_filter = "ALL"
                 try:
                     PidstatOptions.plist = map(lambda x:int(x),optarg.split(','))
                 except ValueError as e:
@@ -270,10 +270,10 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOptionArchive()
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
-        self.pmSetLongOption("process-name",1,"G","process name","Select process names using regular expression.")
+        self.pmSetLongOption("process-name",1,"G","NAME","Select process names using regular expression.")
         self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor.")
-        self.pmSetLongOption("user-name",0,"U","[username]","Show real user name of the tasks and optionally filter by user name.")
-        self.pmSetLongOption("pid-list",1,"P","pid","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
+        self.pmSetLongOption("user-name",1,"U","[username]","Show real user name of the tasks and optionally filter by user name.")
+        self.pmSetLongOption("pid-list",1,"P","PID1,PID2..  ","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
         self.pmSetLongOption("",0,"R","","Report realtime priority and scheduling policy information.")
         self.pmSetLongOption("",0,"r","","Report page faults and memory utilization.")
         self.pmSetLongOption("",0,"k","","Report stack utilization.")
@@ -304,7 +304,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             print "Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand"
         elif PidstatOptions.RFlag:
             print "Timestamp\tUID\tPID\tprio\tpolicy\tCommand"
-        elif PidstatOptions.UFlag:
+        elif PidstatOptions.show_process_user:
             print "Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand"
         else:
             print "Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand"
@@ -332,11 +332,11 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             print("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].minflt(),processes[inst].majflt(),processes[inst].vsize(),processes[inst].rss(),processes[inst].mem(),processes[inst].process_name()))
         elif PidstatOptions.RFlag:
             print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].priority(),processes[inst].policy(),processes[inst].process_name()))
-        elif PidstatOptions.UFlag:
+        elif PidstatOptions.show_process_user:
             print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
         else:
             total_percent = processes[inst].total_percent()
-            if PidstatOptions.IFlag:
+            if PidstatOptions.per_processor_usage:
                 total_percent /= 4
             print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),total_percent,processes[inst].cpu_number(),processes[inst].process_name()))
 
@@ -396,13 +396,13 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
             if PidstatOptions.plist:
                 filtered_inst_list = PidstatOptions.plist
-            elif PidstatOptions.pFlag == "SELF":
+            elif PidstatOptions.pid_filter == "SELF":
                 filtered_inst_list = [os.getpid()]
             else:
-                if PidstatOptions.UFlag:
-                    filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.UStr)
-                if PidstatOptions.GFlag != "":
-                    filtered_inst_list = self.matchInstances(filtered_inst_list,command_names,PidstatOptions.GFlag)
+                if PidstatOptions.show_process_user:
+                    filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.filtered_process_user)
+                if PidstatOptions.process_name != None:
+                    filtered_inst_list = self.matchInstances(filtered_inst_list,command_names,PidstatOptions.process_name)
 
         filtered_inst_list.sort()
 
