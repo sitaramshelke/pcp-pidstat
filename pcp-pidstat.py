@@ -87,11 +87,7 @@ class ProcessCpuUsage:
         return float("%.2f"%percent_of_time)
 
     def total_percent(self):
-        total_percent = self.user_percent()+self.guest_percent()+self.system_percent()
-        if PidstatOptions.IFlag:
-            ncpu = self.__metric_repository.current_value('hinv.ncpu',None)
-            total_percent /= ncpu
-        return total_percent
+        return self.user_percent()+self.guest_percent()+self.system_percent()
 
     def pid(self):
         return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
@@ -339,7 +335,10 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         elif PidstatOptions.UFlag:
             print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
         else:
-            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
+            total_percent = processes[inst].total_percent()
+            if PidstatOptions.IFlag:
+                total_percent /= 4
+            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),total_percent,processes[inst].cpu_number(),processes[inst].process_name()))
 
     def report(self,manager):
         group = manager['pidstat']
