@@ -87,7 +87,11 @@ class ProcessCpuUsage:
         return float("%.2f"%percent_of_time)
 
     def total_percent(self):
-        return self.user_percent()+self.guest_percent()+self.system_percent()
+        total_percent = self.user_percent()+self.guest_percent()+self.system_percent()
+        if PidstatOptions.IFlag:
+            ncpu = self.__metric_repository.current_value('hinv.ncpu',None)
+            total_percent /= ncpu
+        return total_percent
 
     def pid(self):
         return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
@@ -202,6 +206,7 @@ class CpuProcessMemoryUtil:
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     GFlag = ""
+    rFlag = 0
     RFlag = 0
     IFlag = 0
     UFlag = 0
@@ -232,8 +237,9 @@ class PidstatOptions(pmapi.pmOptions):
                     sys.exit(1)
 
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"s:t:G:IU:P:RrV?")
+        pmapi.pmOptions.__init__(self,"a:s:t:G:IU:P:RrV?")
         self.pmSetOptionCallback(self.extraOptions)
+        self.pmSetLongOptionArchive()
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
         self.pmSetLongOption("process-name",1,"G","process name","Select process names using regular expression.")
@@ -300,13 +306,13 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
     def report(self,manager):
         group = manager['pidstat']
-        if not self.infoCount:
-            self.print_machine_info(group)  #print machine info once at the top
-            self.infoCount = 1
-
         if group['proc.psinfo.utime'].netPrevValues == None:
             # need two fetches to report rate converted counter metrics
             return
+
+        if not self.infoCount:
+            self.print_machine_info(group)  #print machine info once at the top
+            self.infoCount = 1
         self.print_header()                 #print header labels everytime
 
         timestamp = group.contextCache.pmCtime(int(group.timestamp)).rstrip().split()
@@ -331,7 +337,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             inst_list = map(lambda x: x.pid(),process_list)
             processes = dict(map(lambda x: (x.pid(),x),process_list))
 
-            filtered_inst_list = [process.pid() for process in process_list if process.vsize() > 0]
+            filtered_inst_list = [process.pid() for process in process_list if process.priority() > 0]
             processes = dict(map(lambda x: (x.pid(),x),process_list))
         else:
             cpu_usage = CpuUsage(metric_repository)
@@ -357,8 +363,6 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         filtered_inst_list.sort()
 
         for inst in filtered_inst_list:
-            if PidstatOptions.IFlag:
-                processes[inst].total_percent /= ncpu
             self.print_process_stat(timestamp[3], processes, inst)
 
 
