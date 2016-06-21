@@ -228,24 +228,126 @@ class CpuProcessStackUtil:
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
         return pid_dict.values()
 
+class ProcessFilter:
+    def __init__(self,options):
+        self.options = options
+
+    def filter_processes(self, processes):
+        return filter(lambda p: self.__predicate(p), processes)
+
+    def __predicate(self, process):
+        return self.__matches_process_username(process) and self.__matches_process_pid(process) and self.__matches_process_name(process) and self.__matches_process_priority(process) and self.__matches_process_memory_util(process) and self.__matches_process_stack_size(process)
+
+    def __matches_process_username(self, process):
+        if self.options.filtered_process_user is not None:
+            return self.options.filtered_process_user == process.user_name()
+        return True
+
+    def __matches_process_pid(self, process):
+        if self.options.pid_filter is not None:
+            pid = process.pid()
+            if pid in self.options.pid_list:
+                return True
+            else:
+                return False
+        return True
+
+    def __matches_process_name(self, process):
+        if self.options.process_name is not None:
+            return True if re.search(self.options.process_name, process.process_name()) else False
+        return True
+
+    def __matches_process_priority(self, process):
+        if self.options.show_process_priority:
+            return True if process.priority() > 0 else False
+        return True
+
+    def __matches_process_memory_util(self, process):
+        if self.options.show_process_memory_util:
+            return True if process.vsize() >0 else False
+        return True
+
+    def __matches_process_stack_size(self, process):
+        if self.options.show_process_stack_util:
+            return True if process.stack_size() >0 else False
+        return True
+
+class CpuUsageReporter:
+    def __init__(self, cpu_usage, process_filter):
+        self.cpu_usage = cpu_usage
+        self.process_filter = process_filter
+        # self.printer = printer
+
+    def print_report(self, timestamp, ncpu):
+        if PidstatOptions.filtered_process_user is not None:
+            print ("Timestamp\tUName\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
+        else:
+            print ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
+        processes = self.process_filter.filter_processes(self.cpu_usage.get_processes(1.34))
+        for process in processes:
+            total_percent = process.total_percent()
+            if PidstatOptions.per_processor_usage:
+                total_percent /= ncpu
+            if PidstatOptions.filtered_process_user is not None:
+                print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_name(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+            else:
+                print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+
+class CpuProcessPrioritiesReporter:
+    def __init__(self, process_priority, process_filter):
+        self.process_priority = process_priority
+        self.process_filter = process_filter
+        # self.printer = printer
+
+    def print_report(self, timestamp):
+        print ("Timestamp\tUID\tPID\tprio\tpolicy\tCommand")
+        processes = self.process_filter.filter_processes(self.process_priority.get_processes())
+        for process in processes:
+            print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
+
+class CpuProcessMemoryUtilReporter:
+    def __init__(self, process_memory_util, process_filter):
+        self.process_memory_util = process_memory_util
+        self.process_filter = process_filter
+        # self.printer = printer
+
+    def print_report(self, timestamp):
+        print ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
+        processes = self.process_filter.filter_processes(self.process_memory_util.get_processes(1.34))
+        for process in processes:
+            print("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,process.user_id(),process.pid(),process.minflt(),process.majflt(),process.vsize(),process.rss(),process.mem(),process.process_name()))
+
+class CpuProcessStackUtilReporter:
+    def __init__(self, process_stack_util, process_filter):
+        self.process_stack_util = process_stack_util
+        self.process_filter = process_filter
+        # self.printer = printer
+
+    def print_report(self, timestamp):
+        print ("Timestamp\tUID\tPID\tStkSize\tCommand")
+        processes = self.process_filter.filter_processes(self.process_stack_util.get_processes())
+        for process in processes:
+            print("%s\t%d\t%d\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
+
+
 # more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     process_name = None
-    rFlag = 0
-    RFlag = 0
-    kFlag = 0
+    show_process_memory_util = False
+    show_process_priority = False
+    show_process_stack_util = False
     per_processor_usage = False
     show_process_user = False
     filtered_process_user = None
     pid_filter = None
-    plist = []
+    pid_list = []
     def extraOptions(self, opt,optarg, index):
         if opt == 'k':
-            PidstatOptions.kFlag = 1
+            PidstatOptions.show_process_stack_util = True
         elif opt == 'r':
-            PidstatOptions.rFlag = 1
+            PidstatOptions.show_process_memory_util = True
         elif opt == 'R':
-            PidstatOptions.RFlag = 1
+            PidstatOptions.show_process_priority = True
         elif opt == 'G':
             PidstatOptions.process_name = optarg
         elif opt == 'I':
@@ -259,9 +361,9 @@ class PidstatOptions(pmapi.pmOptions):
             else:
                 PidstatOptions.pid_filter = "ALL"
                 try:
-                    PidstatOptions.plist = map(lambda x:int(x),optarg.split(','))
+                    PidstatOptions.pid_list = map(lambda x:int(x),optarg.split(','))
                 except ValueError as e:
-                    print "Invalid Process Id List: use comma separated pids without whitespaces"
+                    print ("Invalid Process Id List: use comma separated pids without whitespaces")
                     sys.exit(1)
 
     def __init__(self):
@@ -283,7 +385,6 @@ class PidstatOptions(pmapi.pmOptions):
 # reporting class
 class PidstatReport(pmcc.MetricGroupPrinter):
     infoCount = 0      #print machine info only once
-    hCount = 0         #print header labels
 
     def timeStampDelta(self, group):
         s = group.timestamp.tv_sec - group.prevTimestamp.tv_sec
@@ -297,48 +398,18 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
     def get_ncpu(self,group):
         return group['hinv.ncpu'].netValues[0][2]
+
     def print_header(self):
-        if PidstatOptions.kFlag:
-            print "Timestamp\tUID\tPID\tStkSize\tCommand"
-        elif PidstatOptions.rFlag:
-            print "Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand"
-        elif PidstatOptions.RFlag:
-            print "Timestamp\tUID\tPID\tprio\tpolicy\tCommand"
+        if PidstatOptions.show_process_stack_util:
+            print ("Timestamp\tUID\tPID\tStkSize\tCommand")
+        elif PidstatOptions.show_process_memory_util:
+            print ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
+        elif PidstatOptions.show_process_priority:
+            print ("Timestamp\tUID\tPID\tprio\tpolicy\tCommand")
         elif PidstatOptions.show_process_user:
-            print "Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand"
+            print ("Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand")
         else:
-            print "Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand"
-
-    def instlist(self, group, name):
-        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues)).keys()
-
-    def curVals(self, group, name):
-        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netValues))
-
-    def prevVals(self, group, name):
-        return dict(map(lambda x: (x[0].inst, x[2]), group[name].netPrevValues))
-
-    def matchInstances(self,inst_list,values_list,regexp):
-        matched_list = []
-        for inst in inst_list:
-            if re.search(regexp,values_list[inst]):
-                matched_list.append(inst)
-        return matched_list
-
-    def print_process_stat(self, timestamp, processes, inst):
-        if PidstatOptions.kFlag:
-            print("%s\t%d\t%d\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].stack_size(),processes[inst].process_name()))
-        elif PidstatOptions.rFlag:
-            print("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].minflt(),processes[inst].majflt(),processes[inst].vsize(),processes[inst].rss(),processes[inst].mem(),processes[inst].process_name()))
-        elif PidstatOptions.RFlag:
-            print("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].priority(),processes[inst].policy(),processes[inst].process_name()))
-        elif PidstatOptions.show_process_user:
-            print("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_name(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),processes[inst].total_percent(),processes[inst].cpu_number(),processes[inst].process_name()))
-        else:
-            total_percent = processes[inst].total_percent()
-            if PidstatOptions.per_processor_usage:
-                total_percent /= 4
-            print("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,processes[inst].user_id(),processes[inst].pid(),processes[inst].user_percent(),processes[inst].system_percent(),processes[inst].guest_percent(),total_percent,processes[inst].cpu_number(),processes[inst].process_name()))
+            print ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
 
     def report(self,manager):
         group = manager['pidstat']
@@ -349,66 +420,37 @@ class PidstatReport(pmcc.MetricGroupPrinter):
         if not self.infoCount:
             self.print_machine_info(group)  #print machine info once at the top
             self.infoCount = 1
-        self.print_header()                 #print header labels everytime
 
         timestamp = group.contextCache.pmCtime(int(group.timestamp)).rstrip().split()
         interval_in_seconds = self.timeStampDelta(group)
         ncpu = self.get_ncpu(group)
 
         metric_repository = ReportingMetricRepository(group)
-        filtered_inst_list = []
-        processes = {}
 
-        if(PidstatOptions.kFlag):
+        if(PidstatOptions.show_process_stack_util):
             process_stack_util = CpuProcessStackUtil(metric_repository)
-            process_list = process_stack_util.get_processes()
-            inst_list = map(lambda x: x.pid(),process_list)
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
+            process_filter = ProcessFilter(PidstatOptions)
+            report = CpuProcessStackUtilReporter(process_stack_util, process_filter)
 
-            filtered_inst_list = [process.pid() for process in process_list if process.stack_size() > 0]
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
-        elif(PidstatOptions.rFlag):
+            report.print_report(timestamp[3])
+        elif(PidstatOptions.show_process_memory_util):
             process_memory_util = CpuProcessMemoryUtil(metric_repository)
-            process_list = process_memory_util.get_processes(1.34)
-            inst_list = map(lambda x: x.pid(),process_list)
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
+            process_filter = ProcessFilter(PidstatOptions)
+            report = CpuProcessMemoryUtilReporter(process_memory_util, process_filter)
 
-            filtered_inst_list = [process.pid() for process in process_list if process.vsize() > 0]
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
-        elif(PidstatOptions.RFlag):
+            report.print_report(timestamp[3])
+        elif(PidstatOptions.show_process_priority):
             process_priority = CpuProcessPriorities(metric_repository)
-            process_list = process_priority.get_processes()
-            inst_list = map(lambda x: x.pid(),process_list)
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
+            process_filter = ProcessFilter(PidstatOptions)
+            report = CpuProcessPrioritiesReporter(process_priority, process_filter)
 
-            filtered_inst_list = [process.pid() for process in process_list if process.priority() > 0]
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
+            report.print_report(timestamp[3])
         else:
             cpu_usage = CpuUsage(metric_repository)
-            process_list = cpu_usage.get_processes(interval_in_seconds)
+            process_filter = ProcessFilter(PidstatOptions)
+            report = CpuUsageReporter(cpu_usage, process_filter)
 
-            inst_list = map(lambda x: x.pid(),process_list)
-            user_names = dict(map(lambda x: (x.pid(),x.user_name()),process_list))
-            command_names = dict(map(lambda x: (x.pid(),x.process_name()),process_list))
-            processes = dict(map(lambda x: (x.pid(),x),process_list))
-
-            filtered_inst_list = inst_list
-
-            if PidstatOptions.plist:
-                filtered_inst_list = PidstatOptions.plist
-            elif PidstatOptions.pid_filter == "SELF":
-                filtered_inst_list = [os.getpid()]
-            else:
-                if PidstatOptions.show_process_user:
-                    filtered_inst_list = self.matchInstances(inst_list,user_names,PidstatOptions.filtered_process_user)
-                if PidstatOptions.process_name != None:
-                    filtered_inst_list = self.matchInstances(filtered_inst_list,command_names,PidstatOptions.process_name)
-
-        filtered_inst_list.sort()
-
-        for inst in filtered_inst_list:
-            self.print_process_stat(timestamp[3], processes, inst)
-
+            report.print_report(timestamp[3],ncpu)
 
         print ("\n")
 
