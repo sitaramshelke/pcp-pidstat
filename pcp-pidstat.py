@@ -67,10 +67,18 @@ class ReportingMetricRepository:
             return self.previous_cached_values[metric]
 
     def current_values(self, metric_name):
-        return dict(map(lambda x: (x[0].inst, x[2]), self.group[metric_name].netValues))
+        if metric_name not in self.group:
+            return None
+        if not metric_name in self.current_cached_values.keys():
+            self.current_cached_values[metric_name] = self.__fetch_current_values(metric_name,True)
+        return self.current_cached_values[metric_name]
 
     def previous_values(self, metric_name):
-        return dict(map(lambda x: (x[0].inst, x[2]), self.group[metric_name].netPrevValues))
+        if metric_name not in self.group:
+            return None
+        if not metric_name in self.previous_cached_values.keys():
+            self.previous_cached_values[metric_name] = self.__fetch_previous_values(metric_name,True)
+        return self.previous_cached_values[metric_name]
 
 class ProcessCpuUsage:
     def __init__(self, instance, delta_time, metrics_repository):
