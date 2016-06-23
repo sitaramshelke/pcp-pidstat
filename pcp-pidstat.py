@@ -149,6 +149,9 @@ class ProcessPriority:
         policy_int = self.__metric_repository.current_value('proc.psinfo.policy', self.instance)
         return SCHED_POLICY[policy_int]
 
+    def user_name(self):
+        return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
+
 class CpuProcessPriorities:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
@@ -197,6 +200,9 @@ class ProcessMemoryUtil:
         rss = self.__metric_repository.current_value('proc.psinfo.rss', self.instance)
         return float("%.2f" % (100*float(rss)/total_mem))
 
+    def user_name(self):
+        return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
+
 class CpuProcessMemoryUtil:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
@@ -224,6 +230,9 @@ class ProcessStackUtil:
 
     def stack_size(self):
         return self.__metric_repository.current_value('proc.memory.vmstack', self.instance)
+
+    def user_name(self):
+        return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
 
 
 class CpuProcessStackUtil:
