@@ -39,54 +39,51 @@ class ReportingMetricRepository:
         if not metric in self.group:
             return None
         if instance:
-            if not metric in self.current_cached_values.keys():
+            if self.current_cached_values.get(metric, None) is None:
                 lst = self.__fetch_current_values(metric,instance)
                 self.current_cached_values[metric] = lst
-            if instance in self.current_cached_values[metric].keys():
-                return self.current_cached_values[metric].get(instance,None)
-            else:
-                return None
+
+            return self.current_cached_values[metric].get(instance,None)
         else:
-            if not metric in self.current_cached_values.keys():
+            if self.current_cached_values.get(metric, None) is None:
                 self.current_cached_values[metric] = self.__fetch_current_values(metric,instance)
-            return self.current_cached_values[metric]
+            return self.current_cached_values.get(metric, None)
+
     def previous_value(self, metric, instance):
         if not metric in self.group:
             return None
         if instance:
-            if not metric in self.previous_cached_values.keys():
+            if self.previous_cached_values.get(metric, None) is None:
                 lst = self.__fetch_previous_values(metric,instance)
                 self.previous_cached_values[metric] = lst
-            if instance in self.previous_cached_values[metric].keys():
-                return self.previous_cached_values[metric].get(instance,None)
-            else:
-                return 0
+
+            return self.previous_cached_values[metric].get(instance,None)
         else:
-            if not metric in self.previous_cached_values.keys():
+            if self.previous_cached_values.get(metric, None) is None:
                 self.previous_cached_values[metric] = self.__fetch_previous_values(metric,instance)
-            return self.previous_cached_values[metric]
+            return self.previous_cached_values.get(metric, None)
 
     def current_values(self, metric_name):
-        if metric_name not in self.group:
+        if self.group.get(metric_name, None) is None:
             return None
-        if not metric_name in self.current_cached_values.keys():
+        if self.current_cached_values.get(metric_name, None) is None:
             self.current_cached_values[metric_name] = self.__fetch_current_values(metric_name,True)
-        return self.current_cached_values[metric_name]
+        return self.current_cached_values.get(metric_name, None)
 
     def previous_values(self, metric_name):
-        if metric_name not in self.group:
+        if self.group.get(metric_name, None) is None:
             return None
-        if not metric_name in self.previous_cached_values.keys():
+        if self.previous_cached_values.get(metric_name, None) is None:
             self.previous_cached_values[metric_name] = self.__fetch_previous_values(metric_name,True)
-        return self.previous_cached_values[metric_name]
+        return self.previous_cached_values.get(metric_name, None)
 
 class ProcessCpuUsage:
     def __init__(self, instance, delta_time, metrics_repository):
         self.instance = instance
         self.__delta_time = delta_time
         self.__metric_repository = metrics_repository
+
     def user_percent(self):
-        # Pulled out of CpuUsage class
         percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.utime', self.instance)) / float(1000 * self.__delta_time)
         return float("%.2f"%percent_of_time)
 
@@ -276,12 +273,12 @@ class ProcessFilter:
 
     def __matches_process_memory_util(self, process):
         if self.options.show_process_memory_util:
-            return process.vsize() >0
+            return process.vsize() > 0
         return True
 
     def __matches_process_stack_size(self, process):
         if self.options.show_process_stack_util:
-            return process.stack_size() >0
+            return process.stack_size() > 0
         return True
 
 class CpuUsageReporter:
@@ -412,18 +409,6 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
     def get_ncpu(self,group):
         return group['hinv.ncpu'].netValues[0][2]
-
-    def print_header(self):
-        if PidstatOptions.show_process_stack_util:
-            print ("Timestamp\tUID\tPID\tStkSize\tCommand")
-        elif PidstatOptions.show_process_memory_util:
-            print ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
-        elif PidstatOptions.show_process_priority:
-            print ("Timestamp\tUID\tPID\tprio\tpolicy\tCommand")
-        elif PidstatOptions.show_process_user:
-            print ("Timestamp\tUName\tPID\tusr\t%ystem\tguest\t%CPU\tCPU\tCommand")
-        else:
-            print ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
 
     def report(self,manager):
         group = manager['pidstat']
