@@ -266,36 +266,37 @@ class ProcessFilter:
 
     def __matches_process_name(self, process):
         if self.options.process_name is not None:
-            return True if re.search(self.options.process_name, process.process_name()) else False
+            return re.search(self.options.process_name, process.process_name())
         return True
 
     def __matches_process_priority(self, process):
         if self.options.show_process_priority:
-            return True if process.priority() > 0 else False
+            return process.priority() > 0
         return True
 
     def __matches_process_memory_util(self, process):
         if self.options.show_process_memory_util:
-            return True if process.vsize() >0 else False
+            return process.vsize() >0
         return True
 
     def __matches_process_stack_size(self, process):
         if self.options.show_process_stack_util:
-            return True if process.stack_size() >0 else False
+            return process.stack_size() >0
         return True
 
 class CpuUsageReporter:
-    def __init__(self, cpu_usage, process_filter, printer):
+    def __init__(self, cpu_usage, process_filter, delta_time, printer):
         self.cpu_usage = cpu_usage
         self.process_filter = process_filter
         self.printer = printer
+        self.delta_time = delta_time
 
     def print_report(self, timestamp, ncpu):
         if PidstatOptions.filtered_process_user is not None:
             self.printer ("Timestamp\tUName\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
         else:
             self.printer ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
-        processes = self.process_filter.filter_processes(self.cpu_usage.get_processes(1.34))
+        processes = self.process_filter.filter_processes(self.cpu_usage.get_processes(self.delta_time))
         for process in processes:
             total_percent = process.total_percent()
             if PidstatOptions.per_processor_usage:
@@ -318,14 +319,15 @@ class CpuProcessPrioritiesReporter:
             self.printer("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
 
 class CpuProcessMemoryUtilReporter:
-    def __init__(self, process_memory_util, process_filter, printer):
+    def __init__(self, process_memory_util, process_filter, delta_time, printer):
         self.process_memory_util = process_memory_util
         self.process_filter = process_filter
         self.printer = printer
+        self.delta_time = delta_time
 
     def print_report(self, timestamp):
         self.printer ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
-        processes = self.process_filter.filter_processes(self.process_memory_util.get_processes(1.34))
+        processes = self.process_filter.filter_processes(self.process_memory_util.get_processes(self.delta_time))
         for process in processes:
             self.printer("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,process.user_id(),process.pid(),process.minflt(),process.majflt(),process.vsize(),process.rss(),process.mem(),process.process_name()))
 
@@ -450,7 +452,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             process_memory_util = CpuProcessMemoryUtil(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, stdout.Print)
+            report = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, interval_in_seconds, stdout.Print)
 
             report.print_report(timestamp[3])
         elif(PidstatOptions.show_process_priority):
@@ -464,12 +466,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             cpu_usage = CpuUsage(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuUsageReporter(cpu_usage, process_filter, stdout.Print)
+            report = CpuUsageReporter(cpu_usage, process_filter, interval_in_seconds, stdout.Print)
 
             report.print_report(timestamp[3],ncpu)
-
-        print ("\n")
-
 
 
 if __name__ == "__main__":
