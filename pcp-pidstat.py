@@ -352,6 +352,20 @@ class PidstatOptions(pmapi.pmOptions):
     filtered_process_user = None
     pid_filter = None
     pid_list = []
+
+    def checkOptions(self):
+        if (self.show_process_priority and self.show_process_memory_util):
+            print("Error: -R is incompatible with -r")
+            return False
+        elif (self.show_process_priority and self.show_process_stack_util):
+            print("Error: -R is incompatible with -k")
+            return False
+        elif(self.show_process_memory_util and self.show_process_stack_util):
+            print("Error: -r is incompatible with -k")
+            return False
+        else:
+            return True
+
     def extraOptions(self, opt,optarg, index):
         if opt == 'k':
             PidstatOptions.show_process_stack_util = True
@@ -380,6 +394,7 @@ class PidstatOptions(pmapi.pmOptions):
     def __init__(self):
         pmapi.pmOptions.__init__(self,"a:s:t:G:IU:P:RrkV?")
         self.pmSetOptionCallback(self.extraOptions)
+        self.pmSetLongOptionHeader("General options")
         self.pmSetLongOptionArchive()
         self.pmSetLongOptionSamples()
         self.pmSetLongOptionInterval()
@@ -460,6 +475,8 @@ if __name__ == "__main__":
     try:
         opts = PidstatOptions()
         manager = pmcc.MetricGroupManager.builder(opts,sys.argv)
+        if not opts.checkOptions():
+            raise pmapi.pmUsageErr
         manager['pidstat'] = PIDSTAT_METRICS
         manager.printer = PidstatReport()
         sts = manager.run()
