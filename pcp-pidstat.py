@@ -18,6 +18,10 @@ class StdoutPrinter:
     def Print(self, args):
         print(args)
 
+''' After fetching non singular metric values, create a mapping of instance id
+to instance value rather than instance name to instance value.
+The reason is, in PCP, instance names require a separate pmGetIndom() request
+and some of the names may not be available.'''
 class ReportingMetricRepository:
     def __init__(self,group):
         self.group = group
@@ -351,7 +355,6 @@ class CpuProcessStackUtilReporter:
             self.printer("%s\t%d\t%d\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
 
 
-# more pmOptions to be set here
 class PidstatOptions(pmapi.pmOptions):
     process_name = None
     show_process_memory_util = False
@@ -418,9 +421,9 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
-# reporting class
+
 class PidstatReport(pmcc.MetricGroupPrinter):
-    infoCount = 0      #print machine info only once
+    Machine_info_count = 0
 
     def timeStampDelta(self, group):
         s = group.timestamp.tv_sec - group.prevTimestamp.tv_sec
@@ -441,9 +444,9 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             # need two fetches to report rate converted counter metrics
             return
 
-        if not self.infoCount:
-            self.print_machine_info(group)  #print machine info once at the top
-            self.infoCount = 1
+        if not self.Machine_info_count:
+            self.print_machine_info(group)
+            self.Machine_info_count = 1
 
         timestamp = group.contextCache.pmCtime(int(group.timestamp)).rstrip().split()
         interval_in_seconds = self.timeStampDelta(group)
