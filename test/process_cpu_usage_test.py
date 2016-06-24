@@ -47,38 +47,31 @@ class TestProcessCpuUsage(unittest.TestCase):
 
     def test_user_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
-        test_user_percent = float("%.2f"%(100*(112233 -112223)/(1.34*1000)))
 
         user_percent = process_cpu_usage.user_percent()
 
-        self.assertEquals(user_percent, test_user_percent)
+        self.assertEquals(user_percent, 0.75)
 
     def test_guest_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
-        test_guest_percent = float("%.2f"%(100*(112213-112203)/(1.34*1000)))
 
         guest_percent = process_cpu_usage.guest_percent()
 
-        self.assertEquals(guest_percent, test_guest_percent)
+        self.assertEquals(guest_percent, 0.75)
 
     def test_system_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
-        test_system_percent = float("%.2f"%(100*(112243-112233)/(1.34*1000)))
 
         system_percent = process_cpu_usage.system_percent()
 
-        self.assertEquals(system_percent, test_system_percent)
+        self.assertEquals(system_percent, 0.75)
 
     def test_total_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
-        test_user_percent = float("%.2f"%(100*(112233 -112223)/(1.34*1000)))
-        test_guest_percent = float("%.2f"%(100*(112213-112203)/(1.34*1000)))
-        test_system_percent = float("%.2f"%(100*(112243-112233)/(1.34*1000)))
-        test_total_percent = test_user_percent+test_guest_percent+test_system_percent
 
         total_percent = process_cpu_usage.total_percent()
 
-        self.assertEquals(total_percent, test_total_percent)
+        self.assertEquals(total_percent, 2.25)
 
     def test_pid(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)

@@ -58,27 +58,24 @@ class TestProcessMemoryUtil(unittest.TestCase):
 
     def test_mem(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
-        test_mem = float("%.2f"%(100*float(6272)/3794764))
 
         mem = process_memory_usage.mem()
 
-        self.assertEquals(mem, test_mem)
+        self.assertEquals(mem, 0.17)
 
     def test_min_flt(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
-        test_min_flt = float("%.2f"%(((573935 + 14509) - (573930 + 14500))/1.34))
 
         min_flt = process_memory_usage.minflt()
 
-        self.assertEquals(min_flt, test_min_flt)
+        self.assertEquals(min_flt, 10.45)
 
     def test_maj_flt(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
-        test_maj_flt = float("%.2f"%(((647 + 54) - (645 + 50))/1.34))
 
         maj_flt = process_memory_usage.majflt()
 
-        self.assertEquals(maj_flt, test_maj_flt)
+        self.assertEquals(maj_flt, 4.48)
 
     def test_pid(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
