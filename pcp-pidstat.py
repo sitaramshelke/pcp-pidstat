@@ -291,23 +291,24 @@ class ProcessFilter:
         return True
 
 class CpuUsageReporter:
-    def __init__(self, cpu_usage, process_filter, delta_time, printer):
+    def __init__(self, cpu_usage, process_filter, delta_time, printer, pidstat_options):
         self.cpu_usage = cpu_usage
         self.process_filter = process_filter
         self.printer = printer
         self.delta_time = delta_time
+        self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp, ncpu):
-        if PidstatOptions.filtered_process_user is not None:
+        if self.pidstat_options.filtered_process_user is not None:
             self.printer ("Timestamp\tUName\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
         else:
             self.printer ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
         processes = self.process_filter.filter_processes(self.cpu_usage.get_processes(self.delta_time))
         for process in processes:
             total_percent = process.total_percent()
-            if PidstatOptions.per_processor_usage:
+            if self.pidstat_options.per_processor_usage:
                 total_percent /= ncpu
-            if PidstatOptions.filtered_process_user is not None:
+            if self.pidstat_options.filtered_process_user is not None:
                 self.printer("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_name(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
             else:
                 self.printer("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
@@ -475,7 +476,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             cpu_usage = CpuUsage(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuUsageReporter(cpu_usage, process_filter, interval_in_seconds, stdout.Print)
+            report = CpuUsageReporter(cpu_usage, process_filter, interval_in_seconds, stdout.Print, PidstatOptions)
 
             report.print_report(timestamp[3],ncpu)
 
