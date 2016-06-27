@@ -11,7 +11,7 @@ PIDSTAT_METRICS = ['pmda.uname','hinv.ncpu','proc.psinfo.pid','proc.nprocs','pro
                     'kernel.all.cpu.sys','kernel.all.cpu.guest','kernel.all.cpu.nice','kernel.all.cpu.idle',
                     'proc.id.uid_nm', 'proc.psinfo.rt_priority', 'proc.psinfo.policy', 'proc.psinfo.minflt',
                     'proc.psinfo.maj_flt', 'proc.psinfo.vsize', 'proc.psinfo.rss', 'mem.physmem',
-                    'proc.psinfo.cmin_flt', 'proc.psinfo.cmaj_flt', 'proc.memory.vmstack']
+                    'proc.memory.vmstack']
 SCHED_POLICY = ['NORMAL','FIFO','RR','BATCH','','IDLE','DEADLINE']
 
 class StdoutPrinter:
@@ -182,16 +182,16 @@ class ProcessMemoryUtil:
         return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
 
     def minflt(self):
-        c_min_flt = self.__metric_repository.current_value('proc.psinfo.minflt', self.instance) + self.__metric_repository.current_value('proc.psinfo.cmin_flt', self.instance)
-        p_min_flt = self.__metric_repository.previous_value('proc.psinfo.minflt', self.instance) + self.__metric_repository.previous_value('proc.psinfo.cmin_flt', self.instance)
+        c_min_flt = self.__metric_repository.current_value('proc.psinfo.minflt', self.instance)
+        p_min_flt = self.__metric_repository.previous_value('proc.psinfo.minflt', self.instance)
 
         return float("%.2f" % ((c_min_flt - p_min_flt)/self.delta_time))
 
     def majflt(self):
-        c_maj_flt = self.__metric_repository.current_value('proc.psinfo.maj_flt', self.instance) + self.__metric_repository.current_value('proc.psinfo.cmaj_flt', self.instance)
-        p_maj_flt = self.__metric_repository.previous_value('proc.psinfo.maj_flt', self.instance) + self.__metric_repository.previous_value('proc.psinfo.cmaj_flt', self.instance)
-        maj_flt_per_sec =  (c_maj_flt - p_maj_flt)/self.delta_time
-        return float("%.2f"%maj_flt_per_sec)
+        c_maj_flt = self.__metric_repository.current_value('proc.psinfo.maj_flt', self.instance)
+        p_maj_flt = self.__metric_repository.previous_value('proc.psinfo.maj_flt', self.instance)
+
+        return float("%.2f" % ((c_maj_flt - p_maj_flt)/self.delta_time))
 
     def vsize(self):
         return self.__metric_repository.current_value('proc.psinfo.vsize', self.instance)

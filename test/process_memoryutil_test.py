@@ -13,12 +13,8 @@ class TestProcessMemoryUtil(unittest.TestCase):
             return 120084
         if metric_name == 'proc.psinfo.rss' and instance == 1:
             return 6272
-        if metric_name == 'proc.psinfo.cmin_flt' and instance == 1:
-            return 573935
         if metric_name == 'proc.psinfo.minflt' and instance == 1:
             return 14509
-        if metric_name == 'proc.psinfo.cmaj_flt' and instance == 1:
-            return 647
         if metric_name == 'proc.psinfo.maj_flt' and instance == 1:
             return 54
         if metric_name == 'mem.physmem':
@@ -68,14 +64,14 @@ class TestProcessMemoryUtil(unittest.TestCase):
 
         min_flt = process_memory_usage.minflt()
 
-        self.assertEquals(min_flt, 10.45)
+        self.assertEquals(min_flt, 6.72)
 
     def test_maj_flt(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
 
         maj_flt = process_memory_usage.majflt()
 
-        self.assertEquals(maj_flt, 4.48)
+        self.assertEquals(maj_flt, 2.99)
 
     def test_pid(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
