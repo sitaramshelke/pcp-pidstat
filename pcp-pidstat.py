@@ -88,19 +88,31 @@ class ProcessCpuUsage:
         self.__metric_repository = metrics_repository
 
     def user_percent(self):
-        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.utime', self.instance)) / float(1000 * self.__delta_time)
-        return float("%.2f"%percent_of_time)
+        if self.__metric_repository.previous_value('proc.psinfo.utime', self.instance) is not None:
+            percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.utime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.utime', self.instance)) / float(1000 * self.__delta_time)
+            return float("%.2f"%percent_of_time)
+        else:
+             return None
 
     def guest_percent(self):
-        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', self.instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', self.instance)) / float(1000 * self.__delta_time)
-        return float("%.2f"%percent_of_time)
+        if self.__metric_repository.previous_value('proc.psinfo.guest_time', self.instance) is not None:
+            percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.guest_time', self.instance) - self.__metric_repository.previous_value('proc.psinfo.guest_time', self.instance)) / float(1000 * self.__delta_time)
+            return float("%.2f"%percent_of_time)
+        else:
+            return None
 
     def system_percent(self):
-        percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.stime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.stime', self.instance)) / float(1000 * self.__delta_time)
-        return float("%.2f"%percent_of_time)
+        if self.__metric_repository.previous_value('proc.psinfo.stime', self.instance) is not None:
+            percent_of_time =  100 * float(self.__metric_repository.current_value('proc.psinfo.stime', self.instance) - self.__metric_repository.previous_value('proc.psinfo.stime', self.instance)) / float(1000 * self.__delta_time)
+            return float("%.2f"%percent_of_time)
+        else:
+            return None
 
     def total_percent(self):
-        return self.user_percent()+self.guest_percent()+self.system_percent()
+        if self.user_percent() is not None and self.guest_percent() is not None and self.system_percent() is not None:
+            return self.user_percent()+self.guest_percent()+self.system_percent()
+        else:
+            return None
 
     def pid(self):
         return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
@@ -184,14 +196,18 @@ class ProcessMemoryUtil:
     def minflt(self):
         c_min_flt = self.__metric_repository.current_value('proc.psinfo.minflt', self.instance)
         p_min_flt = self.__metric_repository.previous_value('proc.psinfo.minflt', self.instance)
-
-        return float("%.2f" % ((c_min_flt - p_min_flt)/self.delta_time))
+        if p_min_flt is not None:
+            return float("%.2f" % ((c_min_flt - p_min_flt)/self.delta_time))
+        else:
+            return None
 
     def majflt(self):
         c_maj_flt = self.__metric_repository.current_value('proc.psinfo.maj_flt', self.instance)
         p_maj_flt = self.__metric_repository.previous_value('proc.psinfo.maj_flt', self.instance)
-
-        return float("%.2f" % ((c_maj_flt - p_maj_flt)/self.delta_time))
+        if p_maj_flt is not None:
+            return float("%.2f" % ((c_maj_flt - p_maj_flt)/self.delta_time))
+        else:
+            return None
 
     def vsize(self):
         return self.__metric_repository.current_value('proc.psinfo.vsize', self.instance)
@@ -309,13 +325,26 @@ class CpuUsageReporter:
             self.printer ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
         processes = self.process_filter.filter_processes(self.cpu_usage.get_processes(self.delta_time))
         for process in processes:
+            user_percent = process.user_percent()
+            guest_percent = process.guest_percent()
+            system_percent = process.system_percent()
             total_percent = process.total_percent()
+            if user_percent is None:
+                user_percent = "?"
+            if guest_percent is None:
+                guest_percent = "?"
+            if system_percent is None:
+                system_percent = "?"
+            if total_percent is None:
+                total_percent = "?"
+
             if self.pidstat_options.per_processor_usage:
-                total_percent /= ncpu
+                total_percent = float("%.2f"%(total_percent/ncpu))
+
             if self.pidstat_options.filtered_process_user is not None:
-                self.printer("%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_name(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),user_percent,process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
             else:
-                self.printer("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.user_percent(),process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),user_percent,process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
 
 class CpuProcessPrioritiesReporter:
     def __init__(self, process_priority, process_filter, printer):
@@ -327,7 +356,7 @@ class CpuProcessPrioritiesReporter:
         self.printer ("Timestamp\tUID\tPID\tprio\tpolicy\tCommand")
         processes = self.process_filter.filter_processes(self.process_priority.get_processes())
         for process in processes:
-            self.printer("%s\t%d\t%d\t%d\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
+            self.printer("%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
 
 class CpuProcessMemoryUtilReporter:
     def __init__(self, process_memory_util, process_filter, delta_time, printer):
@@ -340,7 +369,13 @@ class CpuProcessMemoryUtilReporter:
         self.printer ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
         processes = self.process_filter.filter_processes(self.process_memory_util.get_processes(self.delta_time))
         for process in processes:
-            self.printer("%s\t%d\t%d\t%.2f\t\t%.2f\t\t%d\t%d\t%.2f\t%s" % (timestamp,process.user_id(),process.pid(),process.minflt(),process.majflt(),process.vsize(),process.rss(),process.mem(),process.process_name()))
+            maj_flt = process.majflt()
+            min_flt = process.minflt()
+            if maj_flt is None:
+                maj_flt = "?"
+            if min_flt is None:
+                min_flt = "?"
+            self.printer("%s\t%s\t%s\t%s\t\t%s\t\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),min_flt,maj_flt,process.vsize(),process.rss(),process.mem(),process.process_name()))
 
 class CpuProcessStackUtilReporter:
     def __init__(self, process_stack_util, process_filter, printer):
@@ -352,7 +387,7 @@ class CpuProcessStackUtilReporter:
         self.printer ("Timestamp\tUID\tPID\tStkSize\tCommand")
         processes = self.process_filter.filter_processes(self.process_stack_util.get_processes())
         for process in processes:
-            self.printer("%s\t%d\t%d\t%d\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
+            self.printer("%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
 
 
 class PidstatOptions(pmapi.pmOptions):

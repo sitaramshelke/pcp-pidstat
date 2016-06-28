@@ -25,7 +25,7 @@ class TestProcessMemoryUtilReporter(unittest.TestCase):
 
         reporter.print_report(123)
 
-        printer.assert_called_with("123\t1000\t1\t9.10\t\t5.34\t\t100\t200\t1.23\tprocess_1")
+        printer.assert_called_with("123\t1000\t1\t9.1\t\t5.34\t\t100\t200\t1.23\tprocess_1")
 
 if __name__ == "__main__":
     unittest.main()

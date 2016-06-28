@@ -29,7 +29,7 @@ class TestCpuUsageReporter(unittest.TestCase):
 
         reporter.print_report(123, 4)
 
-        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.00\t3.67\t1\tprocess_1")
+        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.0\t3.67\t1\tprocess_1")
 
     def test_print_report_with_user_name(self):
         self.options.filtered_process_user = 'pcp'
@@ -41,7 +41,7 @@ class TestCpuUsageReporter(unittest.TestCase):
 
         reporter.print_report(123, 4)
 
-        printer.assert_called_with("123\tpcp\t1\t2.43\t1.24\t0.00\t3.67\t1\tprocess_1")
+        printer.assert_called_with("123\tpcp\t1\t2.43\t1.24\t0.0\t3.67\t1\tprocess_1")
 
     def test_print_report_with_per_processor_usage(self):
         self.options.per_processor_usage = True
@@ -53,7 +53,7 @@ class TestCpuUsageReporter(unittest.TestCase):
 
         reporter.print_report(123, 4)
 
-        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.00\t0.92\t1\tprocess_1")
+        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.0\t0.92\t1\tprocess_1")
 
 if __name__ == "__main__":
     unittest.main()
