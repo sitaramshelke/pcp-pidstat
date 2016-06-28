@@ -25,6 +25,7 @@ class TestProcessCpuUsage(unittest.TestCase):
             return 1
         if metric_name == 'proc.id.uid_nm' and instance == 1:
             return "pcp"
+        return None
 
     def metric_repo_previous_value_side_effect(self, metric_name,instance):
         if metric_name == 'proc.psinfo.utime' and instance == 1:
@@ -43,7 +44,7 @@ class TestProcessCpuUsage(unittest.TestCase):
             return 1
         if metric_name == 'proc.id.uid_nm' and instance == 1:
             return "pcp"
-
+        return None
 
     def test_user_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
@@ -52,12 +53,26 @@ class TestProcessCpuUsage(unittest.TestCase):
 
         self.assertEquals(user_percent, 0.75)
 
+    def test_user_percent_if_previous_value_is_None(self):
+        process_cpu_usage = ProcessCpuUsage(2,1.34,self.__metric_repository)
+
+        user_percent = process_cpu_usage.user_percent()
+
+        self.assertIsNone(user_percent)
+
     def test_guest_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
 
         guest_percent = process_cpu_usage.guest_percent()
 
         self.assertEquals(guest_percent, 0.75)
+
+    def test_guest_percent_if_previous_value_is_None(self):
+        process_cpu_usage = ProcessCpuUsage(2,1.34,self.__metric_repository)
+
+        guest_percent = process_cpu_usage.guest_percent()
+
+        self.assertIsNone(guest_percent)
 
     def test_system_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
@@ -66,12 +81,26 @@ class TestProcessCpuUsage(unittest.TestCase):
 
         self.assertEquals(system_percent, 0.75)
 
+    def test_system_percent_if_previous_value_is_None(self):
+        process_cpu_usage = ProcessCpuUsage(2,1.34,self.__metric_repository)
+
+        system_percent = process_cpu_usage.system_percent()
+
+        self.assertIsNone(system_percent, None)
+
     def test_total_percent(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)
 
         total_percent = process_cpu_usage.total_percent()
 
         self.assertEquals(total_percent, 2.25)
+
+    def test_total_percent_if_previous_value_None(self):
+        process_cpu_usage = ProcessCpuUsage(2,1.34,self.__metric_repository)
+
+        total_percent = process_cpu_usage.total_percent()
+
+        self.assertIsNone(total_percent, None)
 
     def test_pid(self):
         process_cpu_usage = ProcessCpuUsage(1,1.34,self.__metric_repository)

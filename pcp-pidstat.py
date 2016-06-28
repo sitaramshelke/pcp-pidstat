@@ -342,9 +342,9 @@ class CpuUsageReporter:
                 total_percent = float("%.2f"%(total_percent/ncpu))
 
             if self.pidstat_options.filtered_process_user is not None:
-                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),user_percent,process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),user_percent,system_percent,guest_percent,total_percent,process.cpu_number(),process.process_name()))
             else:
-                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),user_percent,process.system_percent(),process.guest_percent(),total_percent,process.cpu_number(),process.process_name()))
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),user_percent,system_percent,guest_percent,total_percent,process.cpu_number(),process.process_name()))
 
 class CpuProcessPrioritiesReporter:
     def __init__(self, process_priority, process_filter, printer):

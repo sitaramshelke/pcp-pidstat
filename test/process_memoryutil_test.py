@@ -27,6 +27,7 @@ class TestProcessMemoryUtil(unittest.TestCase):
             return 1
         if metric_name == 'proc.psinfo.pid' and instance == 1:
             return 1
+        return None
 
     def metric_repo_previous_value_side_effect(self, metric_name,instance):
         if metric_name == 'proc.psinfo.cmin_flt' and instance == 1:
@@ -37,6 +38,7 @@ class TestProcessMemoryUtil(unittest.TestCase):
             return 645
         if metric_name == 'proc.psinfo.maj_flt' and instance == 1:
             return 50
+        return None
 
     def test_vsize(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
@@ -66,12 +68,26 @@ class TestProcessMemoryUtil(unittest.TestCase):
 
         self.assertEquals(min_flt, 6.72)
 
+    def test_min_flt_if_previous_value_is_None(self):
+        process_memory_usage = ProcessMemoryUtil(2,1.34,self.__metric_repository)
+
+        min_flt = process_memory_usage.minflt()
+
+        self.assertIsNone(min_flt)
+
     def test_maj_flt(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)
 
         maj_flt = process_memory_usage.majflt()
 
         self.assertEquals(maj_flt, 2.99)
+
+    def test_maj_flt_if_previous_value_is_None(self):
+        process_memory_usage = ProcessMemoryUtil(2,1.34,self.__metric_repository)
+
+        maj_flt = process_memory_usage.majflt()
+
+        self.assertIsNone(maj_flt)
 
     def test_pid(self):
         process_memory_usage = ProcessMemoryUtil(1,1.34,self.__metric_repository)

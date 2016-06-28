@@ -55,5 +55,53 @@ class TestCpuUsageReporter(unittest.TestCase):
 
         printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.0\t0.92\t1\tprocess_1")
 
+    def test_print_report_with_user_percent_none(self):
+        cpu_usage = Mock()
+        process_filter = Mock()
+        printer = Mock()
+        self.processes[0].user_percent = Mock(return_value=None)
+        process_filter.filter_processes = Mock(return_value=self.processes)
+        reporter = CpuUsageReporter(cpu_usage, process_filter, 1, printer, self.options)
+
+        reporter.print_report(123, 4)
+
+        printer.assert_called_with("123\t1000\t1\t?\t1.24\t0.0\t3.67\t1\tprocess_1")
+
+    def test_print_report_with_guest_percent_none(self):
+        cpu_usage = Mock()
+        process_filter = Mock()
+        printer = Mock()
+        self.processes[0].guest_percent = Mock(return_value=None)
+        process_filter.filter_processes = Mock(return_value=self.processes)
+        reporter = CpuUsageReporter(cpu_usage, process_filter, 1, printer, self.options)
+
+        reporter.print_report(123, 4)
+
+        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t?\t3.67\t1\tprocess_1")
+
+    def test_print_report_with_system_percent_none(self):
+        cpu_usage = Mock()
+        process_filter = Mock()
+        printer = Mock()
+        self.processes[0].system_percent = Mock(return_value=None)
+        process_filter.filter_processes = Mock(return_value=self.processes)
+        reporter = CpuUsageReporter(cpu_usage, process_filter, 1, printer, self.options)
+
+        reporter.print_report(123, 4)
+
+        printer.assert_called_with("123\t1000\t1\t2.43\t?\t0.0\t3.67\t1\tprocess_1")
+
+    def test_print_report_with_total_percent_none(self):
+        cpu_usage = Mock()
+        process_filter = Mock()
+        printer = Mock()
+        self.processes[0].total_percent = Mock(return_value=None)
+        process_filter.filter_processes = Mock(return_value=self.processes)
+        reporter = CpuUsageReporter(cpu_usage, process_filter, 1, printer, self.options)
+
+        reporter.print_report(123, 4)
+
+        printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.0\t?\t1\tprocess_1")
+
 if __name__ == "__main__":
     unittest.main()
