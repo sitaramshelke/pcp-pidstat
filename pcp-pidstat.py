@@ -319,7 +319,7 @@ class CpuUsageReporter:
         self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp, ncpu):
-        if self.pidstat_options.filtered_process_user is not None:
+        if self.pidstat_options.show_process_user:
             self.printer ("Timestamp\tUName\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
         else:
             self.printer ("Timestamp\tUID\tPID\tusr\tsystem\tguest\t%CPU\tCPU\tCommand")
@@ -341,7 +341,7 @@ class CpuUsageReporter:
             if self.pidstat_options.per_processor_usage:
                 total_percent = float("%.2f"%(total_percent/ncpu))
 
-            if self.pidstat_options.filtered_process_user is not None:
+            if self.pidstat_options.show_process_user:
                 self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),user_percent,system_percent,guest_percent,total_percent,process.cpu_number(),process.process_name()))
             else:
                 self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),user_percent,system_percent,guest_percent,total_percent,process.cpu_number(),process.process_name()))
@@ -440,7 +440,7 @@ class PidstatOptions(pmapi.pmOptions):
                     sys.exit(1)
 
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"a:s:t:G:IU:P:RrkV?")
+        pmapi.pmOptions.__init__(self,"a:s:t:G:IU::P:RrkV?")
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetLongOptionHeader("General options")
         self.pmSetLongOptionArchive()
@@ -448,7 +448,7 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOptionInterval()
         self.pmSetLongOption("process-name",1,"G","NAME","Select process names using regular expression.")
         self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor.")
-        self.pmSetLongOption("user-name",1,"U","[username]","Show real user name of the tasks and optionally filter by user name.")
+        self.pmSetLongOption("user-name",2,"U","[USERNAME]","Show real user name of the tasks and optionally filter by user name.")
         self.pmSetLongOption("pid-list",1,"P","PID1,PID2..  ","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
         self.pmSetLongOption("",0,"R","","Report realtime priority and scheduling policy information.")
         self.pmSetLongOption("",0,"r","","Report page faults and memory utilization.")
