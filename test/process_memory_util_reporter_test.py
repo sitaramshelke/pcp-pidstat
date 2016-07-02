@@ -4,6 +4,9 @@ from pcp_pidstat import CpuProcessMemoryUtilReporter
 
 class TestProcessMemoryUtilReporter(unittest.TestCase):
     def setUp(self):
+        self.options = Mock(
+                        show_process_user = None)
+
         process_1 = Mock(pid = Mock(return_value = 1),
                         process_name = Mock(return_value = "process_1"),
                         user_name = Mock(return_value='pcp'),
@@ -21,7 +24,7 @@ class TestProcessMemoryUtilReporter(unittest.TestCase):
         process_filter = Mock()
         printer = Mock()
         process_filter.filter_processes = Mock(return_value=self.processes)
-        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer)
+        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer, self.options)
 
         reporter.print_report(123)
 
@@ -33,7 +36,7 @@ class TestProcessMemoryUtilReporter(unittest.TestCase):
         printer = Mock()
         self.processes[0].minflt = Mock(return_value=None)
         process_filter.filter_processes = Mock(return_value=self.processes)
-        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer)
+        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer, self.options)
 
         reporter.print_report(123)
 
@@ -45,11 +48,23 @@ class TestProcessMemoryUtilReporter(unittest.TestCase):
         printer = Mock()
         self.processes[0].majflt = Mock(return_value=None)
         process_filter.filter_processes = Mock(return_value=self.processes)
-        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer)
+        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer, self.options)
 
         reporter.print_report(123)
 
         printer.assert_called_with("123\t1000\t1\t9.1\t\t?\t\t100\t200\t1.23\tprocess_1")
+
+    def test_print_report_with_user_name(self):
+        self.options.show_process_user = 'pcp'
+        process_memory_util = Mock()
+        process_filter = Mock()
+        printer = Mock()
+        process_filter.filter_processes = Mock(return_value=self.processes)
+        reporter = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, 1, printer, self.options)
+
+        reporter.print_report(123)
+
+        printer.assert_called_with('123\tpcp\t1\t9.1\t\t5.34\t\t100\t200\t1.23\tprocess_1')
 
 if __name__ == "__main__":
     unittest.main()

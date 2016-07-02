@@ -347,23 +347,28 @@ class CpuUsageReporter:
                 self.printer("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),user_percent,system_percent,guest_percent,total_percent,process.cpu_number(),process.process_name()))
 
 class CpuProcessPrioritiesReporter:
-    def __init__(self, process_priority, process_filter, printer):
+    def __init__(self, process_priority, process_filter, printer, pidstat_options):
         self.process_priority = process_priority
         self.process_filter = process_filter
         self.printer = printer
+        self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp):
         self.printer ("Timestamp\tUID\tPID\tprio\tpolicy\tCommand")
         processes = self.process_filter.filter_processes(self.process_priority.get_processes())
         for process in processes:
-            self.printer("%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
+            if self.pidstat_options.show_process_user:
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),process.priority(),process.policy(),process.process_name()))
+            else:
+                self.printer("%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.priority(),process.policy(),process.process_name()))
 
 class CpuProcessMemoryUtilReporter:
-    def __init__(self, process_memory_util, process_filter, delta_time, printer):
+    def __init__(self, process_memory_util, process_filter, delta_time, printer, pidstat_options):
         self.process_memory_util = process_memory_util
         self.process_filter = process_filter
         self.printer = printer
         self.delta_time = delta_time
+        self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp):
         self.printer ("Timestamp\tUID\tPID\tMinFlt/s\tMajFlt/s\tVSize\tRSS\t%Mem\tCommand")
@@ -375,20 +380,26 @@ class CpuProcessMemoryUtilReporter:
                 maj_flt = "?"
             if min_flt is None:
                 min_flt = "?"
-            self.printer("%s\t%s\t%s\t%s\t\t%s\t\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),min_flt,maj_flt,process.vsize(),process.rss(),process.mem(),process.process_name()))
+            if self.pidstat_options.show_process_user:
+                self.printer("%s\t%s\t%s\t%s\t\t%s\t\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),min_flt,maj_flt,process.vsize(),process.rss(),process.mem(),process.process_name()))
+            else:
+                self.printer("%s\t%s\t%s\t%s\t\t%s\t\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),min_flt,maj_flt,process.vsize(),process.rss(),process.mem(),process.process_name()))
 
 class CpuProcessStackUtilReporter:
-    def __init__(self, process_stack_util, process_filter, printer):
+    def __init__(self, process_stack_util, process_filter, printer, pidstat_options):
         self.process_stack_util = process_stack_util
         self.process_filter = process_filter
         self.printer = printer
+        self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp):
         self.printer ("Timestamp\tUID\tPID\tStkSize\tCommand")
         processes = self.process_filter.filter_processes(self.process_stack_util.get_processes())
         for process in processes:
-            self.printer("%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
-
+            if self.pidstat_options.show_process_user:
+                self.printer("%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_name(),process.pid(),process.stack_size(),process.process_name()))
+            else:
+                self.printer("%s\t%s\t%s\t%s\t%s" % (timestamp,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
 
 class PidstatOptions(pmapi.pmOptions):
     process_name = None
@@ -493,21 +504,21 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             process_stack_util = CpuProcessStackUtil(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuProcessStackUtilReporter(process_stack_util, process_filter, stdout.Print)
+            report = CpuProcessStackUtilReporter(process_stack_util, process_filter, stdout.Print, PidstatOptions)
 
             report.print_report(timestamp[3])
         elif(PidstatOptions.show_process_memory_util):
             process_memory_util = CpuProcessMemoryUtil(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, interval_in_seconds, stdout.Print)
+            report = CpuProcessMemoryUtilReporter(process_memory_util, process_filter, interval_in_seconds, stdout.Print, PidstatOptions)
 
             report.print_report(timestamp[3])
         elif(PidstatOptions.show_process_priority):
             process_priority = CpuProcessPriorities(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
-            report = CpuProcessPrioritiesReporter(process_priority, process_filter, stdout.Print)
+            report = CpuProcessPrioritiesReporter(process_priority, process_filter, stdout.Print, PidstatOptions)
 
             report.print_report(timestamp[3])
         else:
