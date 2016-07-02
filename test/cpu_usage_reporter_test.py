@@ -6,7 +6,7 @@ class TestCpuUsageReporter(unittest.TestCase):
     def setUp(self):
         self.options = Mock(
                         per_processor_usage = False,
-                        filtered_process_user = None)
+                        show_process_user = None)
 
         process_1 = Mock(pid = Mock(return_value = 1),
                         process_name = Mock(return_value = "process_1"),
@@ -32,7 +32,7 @@ class TestCpuUsageReporter(unittest.TestCase):
         printer.assert_called_with("123\t1000\t1\t2.43\t1.24\t0.0\t3.67\t1\tprocess_1")
 
     def test_print_report_with_user_name(self):
-        self.options.filtered_process_user = 'pcp'
+        self.options.show_process_user = 'pcp'
         cpu_usage = Mock()
         process_filter = Mock()
         printer = Mock()
