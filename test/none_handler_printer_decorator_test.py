@@ -1,23 +1,22 @@
+#!/usr/bin/env pmpython
+#
+# Copyright (C) 2016 Sitaram Shelke.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+
 import unittest
 from mock import Mock
 from pcp_pidstat import NoneHandlingPrinterDecorator
 class TestNoneHandlingPrinterDecorator(unittest.TestCase):
-    def setUp(self):
-        self.options = Mock(
-                        per_processor_usage = False,
-                        show_process_user = None)
-
-        process_1 = Mock(pid = Mock(return_value = 1),
-                        process_name = Mock(return_value = "process_1"),
-                        user_name = Mock(return_value='pcp'),
-                        user_id = Mock(return_value=1000),
-                        user_percent = Mock(return_value=2.43),
-                        system_percent = Mock(return_value=1.24),
-                        guest_percent = Mock(return_value=0.00),
-                        total_percent = Mock(return_value=3.67),
-                        cpu_number = Mock(return_value=1),)
-
-        self.processes = [process_1]
 
     def test_print_report_without_none_values(self):
         printer = Mock()

@@ -1,6 +1,6 @@
 #!/usr/bin/env pmpython
 #
-# Copyright (C) 2014-2016 Sitaram Shelke.
+# Copyright (C) 2016 Sitaram Shelke.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -12,7 +12,6 @@
 # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 # for more details.
 #
-# pylint: disable=C0103,R0914,R0902
 
 import sys
 import re
@@ -132,7 +131,7 @@ class ProcessCpuUsage:
 
     def total_percent(self):
         if self.user_percent() is not None and self.guest_percent() is not None and self.system_percent() is not None:
-            return self.user_percent()+self.guest_percent()+self.system_percent()
+            return float("%.2f"%(self.user_percent()+self.guest_percent()+self.system_percent()))
         else:
             return None
 
@@ -160,7 +159,7 @@ class CpuUsage:
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
-        return pid_dict.values()
+        return sorted(pid_dict.values())
 
 
 class ProcessPriority:
@@ -198,7 +197,7 @@ class CpuProcessPriorities:
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
-        return pid_dict.values()
+        return sorted(pid_dict.values())
 
 class ProcessMemoryUtil:
     def __init__(self, instance, delta_time,  metric_repository):
@@ -257,7 +256,7 @@ class CpuProcessMemoryUtil:
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
-        return pid_dict.values()
+        return sorted(pid_dict.values())
 
 class ProcessStackUtil:
     def __init__(self, instance, metric_repository):
@@ -289,7 +288,7 @@ class CpuProcessStackUtil:
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
-        return pid_dict.values()
+        return sorted(pid_dict.values())
 
 class ProcessFilter:
     def __init__(self,options):
@@ -355,7 +354,7 @@ class CpuUsageReporter:
             system_percent = process.system_percent()
             total_percent = process.total_percent()
 
-            if self.pidstat_options.per_processor_usage:
+            if self.pidstat_options.per_processor_usage and total_percent is not None:
                 total_percent = float("%.2f"%(total_percent/ncpu))
 
             if self.pidstat_options.show_process_user:
@@ -418,8 +417,8 @@ class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
         self.printer = printer
 
-    def Print(self, *args):
-        new_args = args[0].replace('None','?')
+    def Print(self, args):
+        new_args = args.replace('None','?')
         self.printer.Print(new_args)
 
 
@@ -461,20 +460,27 @@ class PidstatOptions(pmapi.pmOptions):
         elif opt == 'U':
             PidstatOptions.show_process_user = True
             PidstatOptions.filtered_process_user = optarg
-        elif opt == 'P':
+        elif opt == 'p':
             if optarg == "ALL" or optarg == "SELF":
                 PidstatOptions.pid_filter = optarg
             else:
                 PidstatOptions.pid_filter = "ALL"
                 try:
-                    PidstatOptions.pid_list = map(lambda x:int(x),optarg.split(','))
+                    PidstatOptions.pid_list = list(map(lambda x:int(x),optarg.split(',')))
                 except ValueError as e:
                     print ("Invalid Process Id List: use comma separated pids without whitespaces")
                     sys.exit(1)
 
+    def override(self, opt):
+        """ Override standard PCP options to match pidstat(1) """
+        if (opt == 'p'):
+            return 1
+        return 0
+
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"a:s:t:G:IU::P:RrkV?")
+        pmapi.pmOptions.__init__(self,"a:s:t:G:IU::p:RrkV?")
         self.pmSetOptionCallback(self.extraOptions)
+        self.pmSetOverrideCallback(self.override)
         self.pmSetLongOptionHeader("General options")
         self.pmSetLongOptionArchive()
         self.pmSetLongOptionSamples()
@@ -482,7 +488,7 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOption("process-name",1,"G","NAME","Select process names using regular expression.")
         self.pmSetLongOption("",0,"I","","In SMP environment, show CPU usage per processor.")
         self.pmSetLongOption("user-name",2,"U","[USERNAME]","Show real user name of the tasks and optionally filter by user name.")
-        self.pmSetLongOption("pid-list",1,"P","PID1,PID2..  ","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
+        self.pmSetLongOption("pid-list",1,"p","PID1,PID2..  ","Show stats for specified pids, Use SELF for current process and ALL for all processes.")
         self.pmSetLongOption("",0,"R","","Report realtime priority and scheduling policy information.")
         self.pmSetLongOption("",0,"r","","Report page faults and memory utilization.")
         self.pmSetLongOption("",0,"k","","Report stack utilization.")
